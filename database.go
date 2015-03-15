@@ -279,6 +279,61 @@ func (db *DB) GetByID(model interface{}, id interface{}) error {
 	return nil
 }
 
+// GetIndexedByID fills a map[int64]*MyModel with the models fetched using
+// the list of ids. It's an error if an id of the list is not present (ErrNoSuchEntity)
+func (db *DB) GetIndexedByID(result interface{}, ids []int64) error {
+	resultType := reflect.TypeOf(result)
+	resultValue := reflect.ValueOf(result)
+
+	// Some sanity checks about the result
+	if resultType.Kind() != reflect.Ptr || resultType.Elem().Kind() != reflect.Map {
+		return errors.New("result should be a pointer to a map")
+	}
+	resultElem := resultType.Elem()
+	if resultElem.Key().Kind() != reflect.Int64 {
+		return errors.New("keys of the map should be int64")
+	}
+
+	// Extract the key field name
+	reflectElemValue := reflect.New(resultElem.Elem().Elem())
+	getPKFieldName := reflect.ValueOf(getPrimaryKeyFieldName)
+	ret := getPKFieldName.Call([]reflect.Value{reflectElemValue})
+	keyFieldName, err := ret[0], ret[1]
+	if !err.IsNil() {
+		return errors.Trace(err.Interface().(error))
+	}
+	keyFieldNameStr := keyFieldName.Interface().(string)
+	keyColumn := camelCaseToUnderscore(keyFieldNameStr)
+
+	// Do nothing if there is no items to fetch
+	if len(ids) == 0 {
+		return nil
+	}
+
+	// Query the models
+	query := db.NewQuery().Where(fmt.Sprintf("`%s` IN (?)", keyColumn), ids)
+	getAll := reflect.ValueOf(query.GetAll)
+	models := reflect.New(reflect.SliceOf(resultElem.Elem()))
+	if err := getAll.Call([]reflect.Value{models})[0]; !err.IsNil() {
+		return errors.Trace(err.Interface().(error))
+	}
+
+	// Check that all IDs were present
+	modelsElem := models.Elem()
+	if modelsElem.Len() != len(ids) {
+		return ErrNoSuchEntity
+	}
+
+	// Copy the models to the map
+	resultValueElem := resultValue.Elem()
+	for i := 0; i < modelsElem.Len(); i++ {
+		item := modelsElem.Index(i)
+		resultValueElem.SetMapIndex(item.Elem().FieldByName(keyFieldNameStr), item)
+	}
+
+	return nil
+}
+
 func serializeField(field *field, modelValueElem reflect.Value) (interface{}, error) {
 	rawValue := modelValueElem.FieldByName(field.name).Interface()
 
