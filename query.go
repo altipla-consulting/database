@@ -147,7 +147,8 @@ func (q *Query) GetAll(output interface{}) error {
 		// Read serialized fields
 		serializedIdx = 0
 		for _, field := range fields {
-			if field.json {
+			switch {
+			case field.json && len(serializedFields[serializedIdx]) > 0:
 				decoder := json.NewDecoder(bytes.NewReader(serializedFields[serializedIdx]))
 				dest := elem.Elem().FieldByName(field.name).Addr().Interface()
 				if err := decoder.Decode(dest); err != nil {
@@ -155,7 +156,8 @@ func (q *Query) GetAll(output interface{}) error {
 				}
 
 				serializedIdx++
-			} else if field.gob {
+
+			case field.gob:
 				decoder := gob.NewDecoder(bytes.NewReader(serializedFields[serializedIdx]))
 				dest := elem.Elem().FieldByName(field.name).Addr().Interface()
 				if err := decoder.Decode(dest); err != nil {
