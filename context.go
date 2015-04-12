@@ -8,8 +8,8 @@ type key int
 
 var keyDatabase key
 
-// NewContext creates a new context containing the database
-func NewContext(ctx context.Context, db *DB) context.Context {
+// WithContext adds a database connection to an existent context
+func WithContext(ctx context.Context, db *DB) context.Context {
 	return context.WithValue(ctx, keyDatabase, db)
 }
 
