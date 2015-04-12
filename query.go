@@ -10,18 +10,22 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"golang.org/x/net/context"
 )
 
 // Query helps preparing and executing queries.
 type Query struct {
-	db *DB
-
 	// Where conditions and replacement values
 	conditions []string
 	values     []interface{}
 
 	limit int64
 	order string
+}
+
+// NewQuery starts a new query to the database.
+func NewQuery() *Query {
+	return &Query{}
 }
 
 // Clone makes a copy of the query keeping all the internal state up to that moment.
@@ -36,7 +40,6 @@ func (q *Query) Clone() *Query {
 	}
 
 	return &Query{
-		db:         q.db,
 		conditions: conditions,
 		values:     values,
 		limit:      q.limit,
@@ -46,6 +49,8 @@ func (q *Query) Clone() *Query {
 
 // Where filters by a new column adding some placeholders if needed.
 func (q *Query) Where(column string, args ...interface{}) *Query {
+	q = q.Clone()
+
 	nargs := strings.Count(column, "?")
 	if len(args) != nargs {
 		panic(fmt.Sprintf("expected %d parameters in the query and received %d", nargs, len(args)))
@@ -76,7 +81,7 @@ func (q *Query) Where(column string, args ...interface{}) *Query {
 }
 
 // GetAll returns all the results that matchs the query putting it in the output slice.
-func (q *Query) GetAll(output interface{}) error {
+func (q *Query) GetAll(ctx context.Context, output interface{}) error {
 	outputValue := reflect.ValueOf(output)
 	outputType := reflect.TypeOf(output)
 
@@ -108,7 +113,8 @@ func (q *Query) GetAll(output interface{}) error {
 	}
 
 	// Run the query and fetch the rows
-	rows, err := q.db.Raw.Query(query, q.values...)
+	conn := FromContext(ctx)
+	rows, err := conn.DB.Query(query, q.values...)
 	if err != nil {
 		return errors.Annotate(err, query)
 	}
@@ -181,7 +187,7 @@ func (q *Query) GetAll(output interface{}) error {
 }
 
 // Get returns the first result that matchs the query putting it in the output model.
-func (q *Query) Get(output interface{}) error {
+func (q *Query) Get(ctx context.Context, output interface{}) error {
 	outputValue := reflect.ValueOf(output)
 	outputType := reflect.TypeOf(output)
 
@@ -198,7 +204,11 @@ func (q *Query) Get(output interface{}) error {
 
 	// Fetch the result
 	getAll := reflect.ValueOf(q.GetAll)
-	if err := getAll.Call([]reflect.Value{result})[0]; !err.IsNil() {
+	params := []reflect.Value{
+		reflect.ValueOf(ctx),
+		result,
+	}
+	if err := getAll.Call(params)[0]; !err.IsNil() {
 		return errors.Trace(err.Interface().(error))
 	}
 
@@ -215,6 +225,8 @@ func (q *Query) Get(output interface{}) error {
 
 // Limit returns only the specified number of results as a maximum
 func (q *Query) Limit(limit int64) *Query {
+	q = q.Clone()
+
 	q.limit = limit
 
 	return q
@@ -222,13 +234,15 @@ func (q *Query) Limit(limit int64) *Query {
 
 // Order sets the order of the rows in the result
 func (q *Query) Order(order string) *Query {
+	q = q.Clone()
+
 	q.order = order
 
 	return q
 }
 
 // Delete removes the models that match the query.
-func (q *Query) Delete(model interface{}) error {
+func (q *Query) Delete(ctx context.Context, model interface{}) error {
 	modelValue := reflect.ValueOf(model)
 	modelType := reflect.TypeOf(model)
 
@@ -248,23 +262,13 @@ func (q *Query) Delete(model interface{}) error {
 	query := fmt.Sprintf("DELETE FROM `%s`%s", tableName, conditions)
 
 	// Exec the query
-	if q.db.Debug {
+	conn := FromContext(ctx)
+	if conn.Debug {
 		log.Println("Delete:", query, "-->", q.values)
 	}
-	if _, err := q.db.Raw.Exec(query, q.values...); err != nil {
+	if _, err := conn.DB.Exec(query, q.values...); err != nil {
 		return errors.Annotate(err, query)
 	}
 
 	return nil
-}
-
-func hasOperator(column string) bool {
-	operators := []string{"=", "<>", "<", "<=", ">=", "IN"}
-	for _, op := range operators {
-		if strings.Contains(column, op) {
-			return true
-		}
-	}
-
-	return false
 }

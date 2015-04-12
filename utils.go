@@ -2,6 +2,8 @@ package database
 
 import (
 	"bytes"
+	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -158,4 +160,42 @@ func getTableName(modelType reflect.Type) string {
 	tableName = pluralize(tableName)
 
 	return tableName
+}
+
+func hasOperator(column string) bool {
+	operators := []string{"=", "<>", "<", "<=", ">=", "IN"}
+	for _, op := range operators {
+		if strings.Contains(column, op) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func serializeField(field *field, modelValueElem reflect.Value) (interface{}, error) {
+	rawValue := modelValueElem.FieldByName(field.name).Interface()
+
+	if field.json {
+		// Serialize with JSON when the field requires it
+		buffer := bytes.NewBuffer(nil)
+		if err := json.NewEncoder(buffer).Encode(rawValue); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return buffer.Bytes(), nil
+	}
+
+	if field.gob {
+		// Serialize with gob when the field requires it
+		buffer := bytes.NewBuffer(nil)
+		if err := gob.NewEncoder(buffer).Encode(rawValue); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return buffer.Bytes(), nil
+	}
+
+	// Use the raw value if we're not a JSON-serializable field
+	return rawValue, nil
 }
