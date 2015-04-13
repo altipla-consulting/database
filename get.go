@@ -60,8 +60,17 @@ func GetIndexedByID(ctx context.Context, result interface{}, ids []int64) error 
 		return nil
 	}
 
+	uniqueIDs := []int64{}
+	flag := map[int64]bool{}
+	for _, id := range ids {
+		if !flag[id] {
+			flag[id] = true
+			uniqueIDs = append(uniqueIDs, id)
+		}
+	}
+
 	// Query the models
-	query := NewQuery().Where(fmt.Sprintf("`%s` IN (?)", keyColumn), ids)
+	query := NewQuery().Where(fmt.Sprintf("`%s` IN (?)", keyColumn), uniqueIDs)
 	getAll := reflect.ValueOf(query.GetAll)
 	models := reflect.New(reflect.SliceOf(resultElem.Elem()))
 	params := []reflect.Value{
@@ -74,7 +83,7 @@ func GetIndexedByID(ctx context.Context, result interface{}, ids []int64) error 
 
 	// Check that all IDs were present
 	modelsElem := models.Elem()
-	if modelsElem.Len() != len(ids) {
+	if modelsElem.Len() != len(uniqueIDs) {
 		return ErrNoSuchEntity
 	}
 
