@@ -163,7 +163,7 @@ func getTableName(modelType reflect.Type) string {
 }
 
 func hasOperator(column string) bool {
-	operators := []string{"=", "<>", "<", "<=", ">=", "IN"}
+	operators := []string{"=", "<>", "<", "<=", ">=", "IN", "IS"}
 	for _, op := range operators {
 		if strings.Contains(column, op) {
 			return true
