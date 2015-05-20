@@ -19,8 +19,8 @@ type Query struct {
 	conditions []string
 	values     []interface{}
 
-	limit int64
-	order string
+	limit, offset int64
+	order         string
 }
 
 // NewQuery starts a new query to the database.
@@ -110,6 +110,15 @@ func (q *Query) GetAll(ctx context.Context, output interface{}) error {
 	}
 	if q.order != "" {
 		query = fmt.Sprintf("%s ORDER BY %s", query, q.order)
+	}
+	if q.limit != 0 {
+		query = fmt.Sprintf("%s LIMIT %s", query, q.limit)
+
+		if q.offset != 0 {
+			query = fmt.Sprintf("%s OFFSET %s", query, q.offset)
+		}
+	} else if q.offset != 0 {
+		return errors.New("cannot specify an offset in the query without limit")
 	}
 
 	// Run the query and fetch the rows
@@ -228,6 +237,15 @@ func (q *Query) Limit(limit int64) *Query {
 	q = q.Clone()
 
 	q.limit = limit
+
+	return q
+}
+
+// Offset returns results starting from the specified row
+func (q *Query) Offset(offset int64) *Query {
+	q = q.Clone()
+
+	q.offset = offset
 
 	return q
 }
