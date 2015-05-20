@@ -112,10 +112,10 @@ func (q *Query) GetAll(ctx context.Context, output interface{}) error {
 		query = fmt.Sprintf("%s ORDER BY %s", query, q.order)
 	}
 	if q.limit != 0 {
-		query = fmt.Sprintf("%s LIMIT %s", query, q.limit)
+		query = fmt.Sprintf("%s LIMIT %d", query, q.limit)
 
 		if q.offset != 0 {
-			query = fmt.Sprintf("%s OFFSET %s", query, q.offset)
+			query = fmt.Sprintf("%s OFFSET %d", query, q.offset)
 		}
 	} else if q.offset != 0 {
 		return errors.New("cannot specify an offset in the query without limit")
