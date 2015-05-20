@@ -19,6 +19,11 @@ func WithContext(ctx context.Context, username, password, address, database stri
 	return context.WithValue(ctx, keyDatabase, db), nil
 }
 
+// WithContextConnection register a database connection in the context.
+func WithContextConnection(ctx context.Context, conn *Connection) context.Context {
+	return context.WithValue(ctx, keyDatabase, conn)
+}
+
 // FromContext returns the database stored in the context
 func FromContext(ctx context.Context) *Connection {
 	return ctx.Value(keyDatabase).(*Connection)
