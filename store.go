@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 
@@ -144,14 +145,14 @@ func Create(ctx context.Context, model interface{}) error {
 
 // Update stores the new data of an existing model in the DB.
 func Update(ctx context.Context, model interface{}) error {
-	_, err := UpdateRowsAffected(ctx, model)
+	_, err := UpdateRowsAffected(ctx, model, nil)
 	return errors.Trace(err)
 }
 
 // UpdateRowsAffected stores the new data of an existing model in the DB and returns
 // the number of rows affected: one if it's successful or zero if you are using
 // optimistic locking and the change failed.
-func UpdateRowsAffected(ctx context.Context, model interface{}) (int64, error) {
+func UpdateRowsAffected(ctx context.Context, model interface{}, query *Query) (int64, error) {
 	modelValue := reflect.ValueOf(model)
 	modelType := reflect.TypeOf(model)
 
@@ -197,18 +198,27 @@ func UpdateRowsAffected(ctx context.Context, model interface{}) (int64, error) {
 		values = append(values, serialized)
 	}
 
-	// Add the primary key to filter the result we wanna update
+	// Add the primary key to filter the result we wanna update to have always at
+	// most one single row.
 	keyFieldName, err := getPrimaryKeyFieldName(modelValue.Interface())
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
-	values = append(values, modelValueElem.FieldByName(keyFieldName).Interface())
+	query = query.Where(fmt.Sprintf("`%s` = ?", camelCaseToUnderscore(keyFieldName)),
+		modelValueElem.FieldByName(keyFieldName).Interface())
+
+	// Build the WHERE conditions of the query
+	var conditions string
+	conditions = fmt.Sprintf(" WHERE %s", strings.Join(query.conditions, " AND "))
+	values = append(values, query.values...)
 
 	// Exec the query
-	query := fmt.Sprintf("UPDATE `%s` SET %s WHERE `%s` = ?", tableName,
-		strings.Join(placeholders, ", "), camelCaseToUnderscore(keyFieldName))
+	q := fmt.Sprintf("UPDATE `%s` SET %s %s", tableName, strings.Join(placeholders, ", "), conditions)
 	conn := FromContext(ctx)
-	result, err := conn.DB.Exec(query, values...)
+	if conn.Debug {
+		log.Println("Update:", q, "-->", values)
+	}
+	result, err := conn.DB.Exec(q, values...)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
