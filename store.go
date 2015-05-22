@@ -144,12 +144,20 @@ func Create(ctx context.Context, model interface{}) error {
 
 // Update stores the new data of an existing model in the DB.
 func Update(ctx context.Context, model interface{}) error {
+	_, err := UpdateRowsAffected(ctx, model)
+	return errors.Trace(err)
+}
+
+// UpdateRowsAffected stores the new data of an existing model in the DB and returns
+// the number of rows affected: one if it's successful or zero if you are using
+// optimistic locking and the change failed.
+func UpdateRowsAffected(ctx context.Context, model interface{}) (int64, error) {
 	modelValue := reflect.ValueOf(model)
 	modelType := reflect.TypeOf(model)
 
 	// Some sanity checks about the model
 	if modelValue.Kind() != reflect.Ptr || modelValue.Elem().Kind() != reflect.Struct {
-		return errors.New("model should be a pointer to a struct")
+		return 0, errors.New("model should be a pointer to a struct")
 	}
 
 	modelValueElem := modelValue.Elem()
@@ -161,7 +169,7 @@ func Update(ctx context.Context, model interface{}) error {
 	// Get the list of field names
 	fields, _, err := getSerializableFields(modelTypeElem)
 	if err != nil {
-		return errors.Trace(err)
+		return 0, errors.Trace(err)
 	}
 
 	// Prepare the placeholder question marks for the query
@@ -172,10 +180,10 @@ func Update(ctx context.Context, model interface{}) error {
 
 	// Run before hooks
 	if err := runBeforeSaveHook(modelValue); err != nil {
-		return errors.Trace(err)
+		return 0, errors.Trace(err)
 	}
 	if err := runBeforeUpdateHook(modelValue); err != nil {
-		return errors.Trace(err)
+		return 0, errors.Trace(err)
 	}
 
 	// Add all the values to the query
@@ -183,7 +191,7 @@ func Update(ctx context.Context, model interface{}) error {
 	for _, field := range fields {
 		serialized, err := serializeField(field, modelValueElem)
 		if err != nil {
-			return errors.Trace(err)
+			return 0, errors.Trace(err)
 		}
 
 		values = append(values, serialized)
@@ -192,7 +200,7 @@ func Update(ctx context.Context, model interface{}) error {
 	// Add the primary key to filter the result we wanna update
 	keyFieldName, err := getPrimaryKeyFieldName(modelValue.Interface())
 	if err != nil {
-		return errors.Trace(err)
+		return 0, errors.Trace(err)
 	}
 	values = append(values, modelValueElem.FieldByName(keyFieldName).Interface())
 
@@ -200,17 +208,25 @@ func Update(ctx context.Context, model interface{}) error {
 	query := fmt.Sprintf("UPDATE `%s` SET %s WHERE `%s` = ?", tableName,
 		strings.Join(placeholders, ", "), camelCaseToUnderscore(keyFieldName))
 	conn := FromContext(ctx)
-	if _, err := conn.DB.Exec(query, values...); err != nil {
-		return errors.Trace(err)
+	result, err := conn.DB.Exec(query, values...)
+	if err != nil {
+		return 0, errors.Trace(err)
 	}
 
 	// Run after hooks
 	if err := runAfterUpdateHook(modelValue); err != nil {
-		return errors.Trace(err)
+		return 0, errors.Trace(err)
 	}
 	if err := runAfterSaveHook(modelValue); err != nil {
-		return errors.Trace(err)
+		return 0, errors.Trace(err)
 	}
 
-	return nil
+	// Number of rows affected, this is always present in the MySQL driver so it's
+	// not a performance hit to call it always
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+
+	return n, nil
 }
