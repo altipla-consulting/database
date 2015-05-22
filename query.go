@@ -261,12 +261,19 @@ func (q *Query) Order(order string) *Query {
 
 // Delete removes the models that match the query.
 func (q *Query) Delete(ctx context.Context, model interface{}) error {
+	_, err := q.DeleteRowsAffected(ctx, model)
+	return errors.Trace(err)
+}
+
+// DeleteRowsAffected removes the models that match the query returning the number
+// of affected rows. This is very useful to implement optimistic locking in the models.
+func (q *Query) DeleteRowsAffected(ctx context.Context, model interface{}) (int64, error) {
 	modelValue := reflect.ValueOf(model)
 	modelType := reflect.TypeOf(model)
 
 	// Some sanity checks about the model
 	if modelValue.Kind() != reflect.Ptr || modelValue.Elem().Kind() != reflect.Struct {
-		return errors.New("model should be a pointer to a struct")
+		return 0, errors.New("model should be a pointer to a struct")
 	}
 
 	// Build the WHERE conditions of the query
@@ -284,9 +291,17 @@ func (q *Query) Delete(ctx context.Context, model interface{}) error {
 	if conn.Debug {
 		log.Println("Delete:", query, "-->", q.values)
 	}
-	if _, err := conn.DB.Exec(query, q.values...); err != nil {
-		return errors.Annotate(err, query)
+	result, err := conn.DB.Exec(query, q.values...)
+	if err != nil {
+		return 0, errors.Annotate(err, query)
 	}
 
-	return nil
+	// Number of rows affected, this is always present in the MySQL driver so it's
+	// not a performance hit to call it always
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+
+	return n, nil
 }
