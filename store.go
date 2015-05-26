@@ -153,6 +153,10 @@ func Update(ctx context.Context, model interface{}) error {
 // the number of rows affected: one if it's successful or zero if you are using
 // optimistic locking and the change failed.
 func UpdateRowsAffected(ctx context.Context, model interface{}, query *Query) (int64, error) {
+	if query == nil {
+		query = NewQuery()
+	}
+
 	modelValue := reflect.ValueOf(model)
 	modelType := reflect.TypeOf(model)
 
