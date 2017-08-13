@@ -2,6 +2,8 @@
 database
 ========
 
+> **DEPRECATED:** We recommend using https://upper.io/db.v3/ instead.
+
 Database helper to read and write models.
 
 
