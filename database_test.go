@@ -205,3 +205,25 @@ func TestInsertAndUpdate(t *testing.T) {
 	require.Nil(t, db.Get(ctx, other))
 	require.Equal(t, "qux", other.Name)
 }
+
+func TestDelete(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+	ctx := context.Background()
+
+	m := &testingModel{
+		Code: "foo",
+		Name: "bar",
+	}
+	require.Nil(t, db.Put(ctx, m))
+
+	n, err := db.Count(ctx, m)
+	require.Nil(t, err)
+	require.EqualValues(t, n, 1)
+
+	require.Nil(t, db.Delete(ctx, m))
+
+	n, err = db.Count(ctx, m)
+	require.Nil(t, err)
+	require.EqualValues(t, n, 0)
+}

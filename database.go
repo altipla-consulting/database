@@ -191,3 +191,32 @@ func (db *Database) Limit(limit int64) *Query {
 func (db *Database) Offset(offset int64) *Query {
 	return newEmptyQuery(db).Offset(offset)
 }
+
+func (db *Database) Delete(ctx context.Context, model Model) error {
+	props, err := extractModelProps(model)
+	if err != nil {
+		return err
+	}
+
+	var conds []string
+	var values []interface{}
+	for _, prop := range props {
+		if !prop.PrimaryKey {
+			continue
+		}
+
+		conds = append(conds, fmt.Sprintf("%s = ?", prop.Name))
+		values = append(values, prop.Value)
+	}
+
+	q := fmt.Sprintf(`DELETE FROM %s WHERE %s`, model.TableName(), strings.Join(conds, " AND "))
+	if isDebug() {
+		log.Println("database [Delete]:", q)
+	}
+
+	if _, err := db.sess.ExecContext(ctx, q, values...); err != nil {
+		return err
+	}
+
+	return nil
+}
