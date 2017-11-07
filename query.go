@@ -1,307 +1,264 @@
 package database
 
-// import (
-// 	"bytes"
-// 	"encoding/gob"
-// 	"encoding/json"
-// 	"fmt"
-// 	"log"
-// 	"reflect"
-// 	"strings"
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"log"
+	"reflect"
+	"strings"
+)
 
-// 	"github.com/juju/errors"
-// 	"golang.org/x/net/context"
-// )
+type Query struct {
+	sess          *sql.DB
+	conditions    []Condition
+	orders        []string
+	offset, limit int64
+}
 
-// // Query helps preparing and executing queries.
-// type Query struct {
-// 	// Where conditions and replacement values
-// 	conditions []string
-// 	values     []interface{}
+type Condition interface {
+	SQL() string
+	Values() []interface{}
+}
 
-// 	limit, offset int64
-// 	order         string
-// }
+type simpleCondition struct {
+	sql   string
+	value interface{}
+}
 
-// // NewQuery starts a new query to the database.
-// func NewQuery() *Query {
-// 	return &Query{}
-// }
+func (cond *simpleCondition) SQL() string {
+	if !strings.Contains(cond.sql, " ") {
+		return fmt.Sprintf("%s = ?", cond.sql)
+	}
 
-// // Clone makes a copy of the query keeping all the internal state up to that moment.
-// func (q *Query) Clone() *Query {
-// 	conditions := make([]string, len(q.conditions))
-// 	for i := range conditions {
-// 		conditions[i] = q.conditions[i]
-// 	}
-// 	values := make([]interface{}, len(q.values))
-// 	for i := range values {
-// 		values[i] = q.values[i]
-// 	}
+	if strings.Contains(cond.sql, " IN") {
+		v := reflect.ValueOf(cond.value)
+		placeholders := make([]string, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			placeholders[i] = "?"
+		}
+		return fmt.Sprintf("%s (%s)", cond.sql, strings.Join(placeholders, ", "))
+	}
 
-// 	return &Query{
-// 		conditions: conditions,
-// 		values:     values,
-// 		limit:      q.limit,
-// 		order:      q.order,
-// 	}
-// }
+	if !strings.Contains(cond.sql, "?") {
+		return fmt.Sprintf("%s ?", cond.sql)
+	}
 
-// // Where filters by a new column adding some placeholders if needed.
-// func (q *Query) Where(column string, args ...interface{}) *Query {
-// 	q = q.Clone()
+	return cond.sql
+}
 
-// 	nargs := strings.Count(column, "?")
-// 	if len(args) != nargs {
-// 		panic(fmt.Sprintf("expected %d parameters in the query and received %d", nargs, len(args)))
-// 	}
-// 	if !hasOperator(column) {
-// 		panic(fmt.Sprintf("column does not have an operator: %s", column))
-// 	}
+func (cond *simpleCondition) Values() []interface{} {
+	if strings.Contains(cond.sql, " IN") {
+		v := reflect.ValueOf(cond.value)
+		var values []interface{}
+		for i := 0; i < v.Len(); i++ {
+			values = append(values, v.Index(i).Interface())
+		}
+		return values
+	}
 
-// 	if strings.HasSuffix(column, "IN (?)") && len(args) == 1 && reflect.TypeOf(args[0]).Kind() == reflect.Slice {
-// 		argValue := reflect.ValueOf(args[0])
-// 		placeholders := make([]string, argValue.Len())
-// 		for i := range placeholders {
-// 			placeholders[i] = "?"
-// 		}
-// 		newColumn := fmt.Sprintf("IN (%s)", strings.Join(placeholders, ", "))
+	return []interface{}{cond.value}
+}
 
-// 		q.conditions = append(q.conditions, strings.Replace(column, "IN (?)", newColumn, -1))
+func newQuery(db *Database, condition Condition) *Query {
+	return &Query{
+		sess:       db.sess,
+		conditions: []Condition{condition},
+	}
+}
 
-// 		for i := 0; i < argValue.Len(); i++ {
-// 			q.values = append(q.values, argValue.Index(i).Interface())
-// 		}
-// 	} else {
-// 		q.conditions = append(q.conditions, column)
-// 		q.values = append(q.values, args...)
-// 	}
+func newEmptyQuery(db *Database) *Query {
+	return &Query{
+		sess: db.sess,
+	}
+}
 
-// 	return q
-// }
+func (q *Query) Filter(sql string, value interface{}) *Query {
+	return q.FilterCond(&simpleCondition{sql, value})
+}
 
-// // GetAll returns all the results that matchs the query putting it in the output slice.
-// func (q *Query) GetAll(ctx context.Context, output interface{}) error {
-// 	outputValue := reflect.ValueOf(output)
-// 	outputType := reflect.TypeOf(output)
+func (q *Query) FilterCond(condition Condition) *Query {
+	q.conditions = append(q.conditions, condition)
+	return q
+}
 
-// 	// Some sanity checks about the output value
-// 	if outputValue.Kind() != reflect.Ptr || outputValue.Elem().Kind() != reflect.Slice {
-// 		return errors.New("output should be a pointer to a slice")
-// 	}
-// 	sliceElemType := outputType.Elem().Elem()
-// 	if sliceElemType.Kind() != reflect.Ptr || sliceElemType.Elem().Kind() != reflect.Struct {
-// 		return errors.New("output should be a pointer to a slice of struct pointers")
-// 	}
+func (q *Query) Order(column string) *Query {
+	if strings.Contains(column, " ") {
+		panic("call Order multiple times, do not pass multiple columns")
+	}
 
-// 	// Build the table name
-// 	tableName := getTableName(sliceElemType.Elem())
+	if strings.HasPrefix(column, "-") {
+		column = fmt.Sprintf("%s DESC", column[1:])
+	} else {
+		column = fmt.Sprintf("%s ASC", column)
+	}
 
-// 	// Get the list of field names
-// 	fields, columns, err := getSerializableFields(sliceElemType.Elem())
-// 	if err != nil {
-// 		return errors.Trace(err)
-// 	}
+	q.orders = append(q.orders, column)
+	return q
+}
 
-// 	// Prepare the query string
-// 	query := fmt.Sprintf("SELECT %s FROM `%s`", columns, tableName)
-// 	if len(q.conditions) > 0 {
-// 		query = fmt.Sprintf("%s WHERE %s", query, strings.Join(q.conditions, " AND "))
-// 	}
-// 	if q.order != "" {
-// 		query = fmt.Sprintf("%s ORDER BY %s", query, q.order)
-// 	}
-// 	if q.limit != 0 {
-// 		query = fmt.Sprintf("%s LIMIT %d", query, q.limit)
+func (q *Query) GetAll(ctx context.Context, models interface{}) error {
+	v := reflect.ValueOf(models)
+	t := reflect.TypeOf(models)
 
-// 		if q.offset != 0 {
-// 			query = fmt.Sprintf("%s OFFSET %d", query, q.offset)
-// 		}
-// 	} else if q.offset != 0 {
-// 		return errors.New("cannot specify an offset in the query without limit")
-// 	}
+	if v.Kind() != reflect.Ptr {
+		return fmt.Errorf("database: pass a pointer to a slice to GetAll")
+	}
 
-// 	// Run the query and fetch the rows
-// 	conn := FromContext(ctx)
-// 	rows, err := conn.DB.Query(query, q.values...)
-// 	if err != nil {
-// 		return errors.Annotate(err, query)
-// 	}
-// 	defer rows.Close()
+	v = v.Elem()
+	t = t.Elem()
 
-// 	scan := reflect.ValueOf(rows.Scan)
-// 	for rows.Next() {
-// 		// Create a new element
-// 		elem := reflect.New(sliceElemType.Elem())
+	if v.Kind() != reflect.Slice {
+		return fmt.Errorf("database: pass a slice to GetAll")
+	}
 
-// 		// Prepare space to save the bytes of serialized fields
-// 		serializedFields := [][]byte{}
-// 		for _, field := range fields {
-// 			if field.json || field.gob {
-// 				serializedFields = append(serializedFields, []byte{})
-// 			}
-// 		}
+	dest := reflect.MakeSlice(t, 0, 0)
 
-// 		// Prepare the pointers to all its fields
-// 		pointers := []reflect.Value{}
-// 		serializedIdx := 0
-// 		for _, field := range fields {
-// 			if field.json || field.gob {
-// 				pointers = append(pointers, reflect.ValueOf(&serializedFields[serializedIdx]))
-// 				serializedIdx++
-// 			} else {
-// 				pointers = append(pointers, elem.Elem().FieldByName(field.name).Addr())
-// 			}
-// 		}
+	it, err := q.Iterator(ctx, reflect.New(t.Elem().Elem()).Interface().(Model))
+	if err != nil {
+		return err
+	}
+	defer it.Close()
 
-// 		// Scan the row into the struct
-// 		if err := scan.Call(pointers)[0]; !err.IsNil() {
-// 			return errors.Trace(err.Interface().(error))
-// 		}
+	for {
+		model := reflect.New(t.Elem().Elem())
+		if err := it.Next(model.Interface()); err != nil {
+			if err == Done {
+				break
+			}
 
-// 		// Read serialized fields
-// 		serializedIdx = 0
-// 		for _, field := range fields {
-// 			switch {
-// 			case field.json && len(serializedFields[serializedIdx]) > 0:
-// 				decoder := json.NewDecoder(bytes.NewReader(serializedFields[serializedIdx]))
-// 				dest := elem.Elem().FieldByName(field.name).Addr().Interface()
-// 				if err := decoder.Decode(dest); err != nil {
-// 					return errors.Trace(err)
-// 				}
+			return err
+		}
 
-// 				serializedIdx++
+		dest = reflect.Append(dest, model)
+	}
 
-// 			case field.gob:
-// 				decoder := gob.NewDecoder(bytes.NewReader(serializedFields[serializedIdx]))
-// 				dest := elem.Elem().FieldByName(field.name).Addr().Interface()
-// 				if err := decoder.Decode(dest); err != nil {
-// 					return errors.Trace(err)
-// 				}
+	v.Set(dest)
 
-// 				serializedIdx++
-// 			}
-// 		}
+	return nil
+}
 
-// 		// Run hooks
-// 		if err := runAfterFindHook(elem); err != nil {
-// 			return errors.Trace(err)
-// 		}
+func (q *Query) Count(ctx context.Context, model Model) (int64, error) {
+	var conds []string
+	var values []interface{}
+	for _, cond := range q.conditions {
+		conds = append(conds, cond.SQL())
+		values = append(values, cond.Values()...)
+	}
 
-// 		// Append to the result
-// 		outputValue.Elem().Set(reflect.Append(outputValue.Elem(), elem))
-// 	}
+	sqlq := fmt.Sprintf(`SELECT COUNT(*) FROM %s`, model.TableName())
+	if len(conds) > 0 {
+		sqlq = fmt.Sprintf("%s WHERE %s", sqlq, strings.Join(conds, " AND "))
+	}
+	if len(q.orders) > 0 {
+		sqlq = fmt.Sprintf("%s ORDER BY %s", sqlq, strings.Join(q.orders, ", "))
+	}
+	if isDebug() {
+		log.Println("database [Count]:", sqlq)
+	}
 
-// 	return nil
-// }
+	var n int64
+	if err := db.sess.QueryRowContext(ctx, sqlq, values...).Scan(&n); err != nil {
+		return 0, err
+	}
 
-// // Get returns the first result that matchs the query putting it in the output model.
-// func (q *Query) Get(ctx context.Context, output interface{}) error {
-// 	outputValue := reflect.ValueOf(output)
-// 	outputType := reflect.TypeOf(output)
+	return n, nil
+}
 
-// 	// Some sanity checks about the output value
-// 	if outputValue.Kind() != reflect.Ptr || outputValue.Elem().Kind() != reflect.Struct {
-// 		return errors.New("output should be a pointer to a struct")
-// 	}
+func (q *Query) RandomRow(ctx context.Context, model Model) error {
+	c, err := q.Count(ctx, model)
+	if err != nil {
+		return err
+	}
 
-// 	// Limit the request to a single result
-// 	q.Limit(1)
+	_ = c
 
-// 	// Buid an empty list for the results
-// 	result := reflect.New(reflect.SliceOf(outputType))
+	return nil
+}
 
-// 	// Fetch the result
-// 	getAll := reflect.ValueOf(q.GetAll)
-// 	params := []reflect.Value{
-// 		reflect.ValueOf(ctx),
-// 		result,
-// 	}
-// 	if err := getAll.Call(params)[0]; !err.IsNil() {
-// 		return errors.Trace(err.Interface().(error))
-// 	}
+func (q *Query) Offset(offset int64) *Query {
+	q.offset = offset
+	return q
+}
 
-// 	resultElem := result.Elem()
-// 	if resultElem.Len() == 0 {
-// 		return ErrNoSuchEntity
-// 	}
+func (q *Query) Limit(limit int64) *Query {
+	q.limit = limit
+	return q
+}
 
-// 	// Output only the individual result, not the whole list
-// 	outputValue.Elem().Set(resultElem.Index(0).Elem())
+type Iterator struct {
+	rows  *sql.Rows
+	props []*Property
+}
 
-// 	return nil
-// }
+func (it *Iterator) Close() {
+	it.rows.Close()
+}
 
-// // Limit returns only the specified number of results as a maximum
-// func (q *Query) Limit(limit int64) *Query {
-// 	q = q.Clone()
+func (it *Iterator) Next(model interface{}) error {
+	v := reflect.ValueOf(model).Elem()
 
-// 	q.limit = limit
+	if err := it.rows.Err(); err != nil {
+		return err
+	}
 
-// 	return q
-// }
+	if !it.rows.Next() {
+		if err := it.rows.Err(); err != nil {
+			return err
+		}
 
-// // Offset returns results starting from the specified row
-// func (q *Query) Offset(offset int64) *Query {
-// 	q = q.Clone()
+		it.Close()
 
-// 	q.offset = offset
+		return Done
+	}
 
-// 	return q
-// }
+	ptrs := make([]interface{}, len(it.props))
+	for i, prop := range it.props {
+		ptrs[i] = v.FieldByName(prop.Field).Addr().Interface()
+	}
+	if err := it.rows.Scan(ptrs...); err != nil {
+		return err
+	}
 
-// // Order sets the order of the rows in the result
-// func (q *Query) Order(order string) *Query {
-// 	q = q.Clone()
+	return nil
+}
 
-// 	q.order = order
+func (q *Query) Iterator(ctx context.Context, model Model) (*Iterator, error) {
+	props, err := extractModelProps(model)
+	if err != nil {
+		return nil, err
+	}
 
-// 	return q
-// }
+	cols := make([]string, len(props))
+	for i, prop := range props {
+		cols[i] = prop.Name
+	}
 
-// // Delete removes the models that match the query.
-// func (q *Query) Delete(ctx context.Context, model interface{}) error {
-// 	_, err := q.DeleteRowsAffected(ctx, model)
-// 	return errors.Trace(err)
-// }
+	var conds []string
+	var values []interface{}
+	for _, cond := range q.conditions {
+		conds = append(conds, cond.SQL())
+		values = append(values, cond.Values()...)
+	}
 
-// // DeleteRowsAffected removes the models that match the query returning the number
-// // of affected rows. This is very useful to implement optimistic locking in the models.
-// func (q *Query) DeleteRowsAffected(ctx context.Context, model interface{}) (int64, error) {
-// 	modelValue := reflect.ValueOf(model)
-// 	modelType := reflect.TypeOf(model)
+	sqlq := fmt.Sprintf(`SELECT %s FROM %s`, strings.Join(cols, ", "), model.TableName())
+	if len(conds) > 0 {
+		sqlq = fmt.Sprintf("%s WHERE %s", sqlq, strings.Join(conds, " AND "))
+	}
+	if len(q.orders) > 0 {
+		sqlq = fmt.Sprintf("%s ORDER BY %s", sqlq, strings.Join(q.orders, ", "))
+	}
+	if q.limit > 0 {
+		sqlq = fmt.Sprintf("%s LIMIT %d,%d", sqlq, q.offset, q.limit)
+	}
+	if isDebug() {
+		log.Println("database [Iterator]:", sqlq)
+	}
 
-// 	// Some sanity checks about the model
-// 	if modelValue.Kind() != reflect.Ptr || modelValue.Elem().Kind() != reflect.Struct {
-// 		return 0, errors.New("model should be a pointer to a struct")
-// 	}
+	rows, err := q.sess.QueryContext(ctx, sqlq, values...)
+	if err != nil {
+		return nil, err
+	}
 
-// 	// Build the WHERE conditions of the query
-// 	var conditions string
-// 	if len(q.conditions) > 0 {
-// 		conditions = fmt.Sprintf(" WHERE %s", strings.Join(q.conditions, " AND "))
-// 	}
-
-// 	// Build the table name
-// 	tableName := getTableName(modelType.Elem())
-// 	query := fmt.Sprintf("DELETE FROM `%s`%s", tableName, conditions)
-
-// 	// Exec the query
-// 	conn := FromContext(ctx)
-// 	if conn.Debug {
-// 		log.Println("Delete:", query, "-->", q.values)
-// 	}
-// 	result, err := conn.DB.Exec(query, q.values...)
-// 	if err != nil {
-// 		return 0, errors.Annotate(err, query)
-// 	}
-
-// 	// Number of rows affected, this is always present in the MySQL driver so it's
-// 	// not a performance hit to call it always
-// 	n, err := result.RowsAffected()
-// 	if err != nil {
-// 		return 0, errors.Trace(err)
-// 	}
-
-// 	return n, nil
-// }
+	return &Iterator{rows, props}, nil
+}
