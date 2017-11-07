@@ -1,307 +1,307 @@
 package database
 
-import (
-	"bytes"
-	"encoding/gob"
-	"encoding/json"
-	"fmt"
-	"log"
-	"reflect"
-	"strings"
+// import (
+// 	"bytes"
+// 	"encoding/gob"
+// 	"encoding/json"
+// 	"fmt"
+// 	"log"
+// 	"reflect"
+// 	"strings"
 
-	"github.com/juju/errors"
-	"golang.org/x/net/context"
-)
+// 	"github.com/juju/errors"
+// 	"golang.org/x/net/context"
+// )
 
-// Query helps preparing and executing queries.
-type Query struct {
-	// Where conditions and replacement values
-	conditions []string
-	values     []interface{}
+// // Query helps preparing and executing queries.
+// type Query struct {
+// 	// Where conditions and replacement values
+// 	conditions []string
+// 	values     []interface{}
 
-	limit, offset int64
-	order         string
-}
+// 	limit, offset int64
+// 	order         string
+// }
 
-// NewQuery starts a new query to the database.
-func NewQuery() *Query {
-	return &Query{}
-}
+// // NewQuery starts a new query to the database.
+// func NewQuery() *Query {
+// 	return &Query{}
+// }
 
-// Clone makes a copy of the query keeping all the internal state up to that moment.
-func (q *Query) Clone() *Query {
-	conditions := make([]string, len(q.conditions))
-	for i := range conditions {
-		conditions[i] = q.conditions[i]
-	}
-	values := make([]interface{}, len(q.values))
-	for i := range values {
-		values[i] = q.values[i]
-	}
+// // Clone makes a copy of the query keeping all the internal state up to that moment.
+// func (q *Query) Clone() *Query {
+// 	conditions := make([]string, len(q.conditions))
+// 	for i := range conditions {
+// 		conditions[i] = q.conditions[i]
+// 	}
+// 	values := make([]interface{}, len(q.values))
+// 	for i := range values {
+// 		values[i] = q.values[i]
+// 	}
 
-	return &Query{
-		conditions: conditions,
-		values:     values,
-		limit:      q.limit,
-		order:      q.order,
-	}
-}
+// 	return &Query{
+// 		conditions: conditions,
+// 		values:     values,
+// 		limit:      q.limit,
+// 		order:      q.order,
+// 	}
+// }
 
-// Where filters by a new column adding some placeholders if needed.
-func (q *Query) Where(column string, args ...interface{}) *Query {
-	q = q.Clone()
+// // Where filters by a new column adding some placeholders if needed.
+// func (q *Query) Where(column string, args ...interface{}) *Query {
+// 	q = q.Clone()
 
-	nargs := strings.Count(column, "?")
-	if len(args) != nargs {
-		panic(fmt.Sprintf("expected %d parameters in the query and received %d", nargs, len(args)))
-	}
-	if !hasOperator(column) {
-		panic(fmt.Sprintf("column does not have an operator: %s", column))
-	}
+// 	nargs := strings.Count(column, "?")
+// 	if len(args) != nargs {
+// 		panic(fmt.Sprintf("expected %d parameters in the query and received %d", nargs, len(args)))
+// 	}
+// 	if !hasOperator(column) {
+// 		panic(fmt.Sprintf("column does not have an operator: %s", column))
+// 	}
 
-	if strings.HasSuffix(column, "IN (?)") && len(args) == 1 && reflect.TypeOf(args[0]).Kind() == reflect.Slice {
-		argValue := reflect.ValueOf(args[0])
-		placeholders := make([]string, argValue.Len())
-		for i := range placeholders {
-			placeholders[i] = "?"
-		}
-		newColumn := fmt.Sprintf("IN (%s)", strings.Join(placeholders, ", "))
+// 	if strings.HasSuffix(column, "IN (?)") && len(args) == 1 && reflect.TypeOf(args[0]).Kind() == reflect.Slice {
+// 		argValue := reflect.ValueOf(args[0])
+// 		placeholders := make([]string, argValue.Len())
+// 		for i := range placeholders {
+// 			placeholders[i] = "?"
+// 		}
+// 		newColumn := fmt.Sprintf("IN (%s)", strings.Join(placeholders, ", "))
 
-		q.conditions = append(q.conditions, strings.Replace(column, "IN (?)", newColumn, -1))
+// 		q.conditions = append(q.conditions, strings.Replace(column, "IN (?)", newColumn, -1))
 
-		for i := 0; i < argValue.Len(); i++ {
-			q.values = append(q.values, argValue.Index(i).Interface())
-		}
-	} else {
-		q.conditions = append(q.conditions, column)
-		q.values = append(q.values, args...)
-	}
+// 		for i := 0; i < argValue.Len(); i++ {
+// 			q.values = append(q.values, argValue.Index(i).Interface())
+// 		}
+// 	} else {
+// 		q.conditions = append(q.conditions, column)
+// 		q.values = append(q.values, args...)
+// 	}
 
-	return q
-}
+// 	return q
+// }
 
-// GetAll returns all the results that matchs the query putting it in the output slice.
-func (q *Query) GetAll(ctx context.Context, output interface{}) error {
-	outputValue := reflect.ValueOf(output)
-	outputType := reflect.TypeOf(output)
+// // GetAll returns all the results that matchs the query putting it in the output slice.
+// func (q *Query) GetAll(ctx context.Context, output interface{}) error {
+// 	outputValue := reflect.ValueOf(output)
+// 	outputType := reflect.TypeOf(output)
 
-	// Some sanity checks about the output value
-	if outputValue.Kind() != reflect.Ptr || outputValue.Elem().Kind() != reflect.Slice {
-		return errors.New("output should be a pointer to a slice")
-	}
-	sliceElemType := outputType.Elem().Elem()
-	if sliceElemType.Kind() != reflect.Ptr || sliceElemType.Elem().Kind() != reflect.Struct {
-		return errors.New("output should be a pointer to a slice of struct pointers")
-	}
+// 	// Some sanity checks about the output value
+// 	if outputValue.Kind() != reflect.Ptr || outputValue.Elem().Kind() != reflect.Slice {
+// 		return errors.New("output should be a pointer to a slice")
+// 	}
+// 	sliceElemType := outputType.Elem().Elem()
+// 	if sliceElemType.Kind() != reflect.Ptr || sliceElemType.Elem().Kind() != reflect.Struct {
+// 		return errors.New("output should be a pointer to a slice of struct pointers")
+// 	}
 
-	// Build the table name
-	tableName := getTableName(sliceElemType.Elem())
+// 	// Build the table name
+// 	tableName := getTableName(sliceElemType.Elem())
 
-	// Get the list of field names
-	fields, columns, err := getSerializableFields(sliceElemType.Elem())
-	if err != nil {
-		return errors.Trace(err)
-	}
+// 	// Get the list of field names
+// 	fields, columns, err := getSerializableFields(sliceElemType.Elem())
+// 	if err != nil {
+// 		return errors.Trace(err)
+// 	}
 
-	// Prepare the query string
-	query := fmt.Sprintf("SELECT %s FROM `%s`", columns, tableName)
-	if len(q.conditions) > 0 {
-		query = fmt.Sprintf("%s WHERE %s", query, strings.Join(q.conditions, " AND "))
-	}
-	if q.order != "" {
-		query = fmt.Sprintf("%s ORDER BY %s", query, q.order)
-	}
-	if q.limit != 0 {
-		query = fmt.Sprintf("%s LIMIT %d", query, q.limit)
+// 	// Prepare the query string
+// 	query := fmt.Sprintf("SELECT %s FROM `%s`", columns, tableName)
+// 	if len(q.conditions) > 0 {
+// 		query = fmt.Sprintf("%s WHERE %s", query, strings.Join(q.conditions, " AND "))
+// 	}
+// 	if q.order != "" {
+// 		query = fmt.Sprintf("%s ORDER BY %s", query, q.order)
+// 	}
+// 	if q.limit != 0 {
+// 		query = fmt.Sprintf("%s LIMIT %d", query, q.limit)
 
-		if q.offset != 0 {
-			query = fmt.Sprintf("%s OFFSET %d", query, q.offset)
-		}
-	} else if q.offset != 0 {
-		return errors.New("cannot specify an offset in the query without limit")
-	}
+// 		if q.offset != 0 {
+// 			query = fmt.Sprintf("%s OFFSET %d", query, q.offset)
+// 		}
+// 	} else if q.offset != 0 {
+// 		return errors.New("cannot specify an offset in the query without limit")
+// 	}
 
-	// Run the query and fetch the rows
-	conn := FromContext(ctx)
-	rows, err := conn.DB.Query(query, q.values...)
-	if err != nil {
-		return errors.Annotate(err, query)
-	}
-	defer rows.Close()
+// 	// Run the query and fetch the rows
+// 	conn := FromContext(ctx)
+// 	rows, err := conn.DB.Query(query, q.values...)
+// 	if err != nil {
+// 		return errors.Annotate(err, query)
+// 	}
+// 	defer rows.Close()
 
-	scan := reflect.ValueOf(rows.Scan)
-	for rows.Next() {
-		// Create a new element
-		elem := reflect.New(sliceElemType.Elem())
+// 	scan := reflect.ValueOf(rows.Scan)
+// 	for rows.Next() {
+// 		// Create a new element
+// 		elem := reflect.New(sliceElemType.Elem())
 
-		// Prepare space to save the bytes of serialized fields
-		serializedFields := [][]byte{}
-		for _, field := range fields {
-			if field.json || field.gob {
-				serializedFields = append(serializedFields, []byte{})
-			}
-		}
+// 		// Prepare space to save the bytes of serialized fields
+// 		serializedFields := [][]byte{}
+// 		for _, field := range fields {
+// 			if field.json || field.gob {
+// 				serializedFields = append(serializedFields, []byte{})
+// 			}
+// 		}
 
-		// Prepare the pointers to all its fields
-		pointers := []reflect.Value{}
-		serializedIdx := 0
-		for _, field := range fields {
-			if field.json || field.gob {
-				pointers = append(pointers, reflect.ValueOf(&serializedFields[serializedIdx]))
-				serializedIdx++
-			} else {
-				pointers = append(pointers, elem.Elem().FieldByName(field.name).Addr())
-			}
-		}
+// 		// Prepare the pointers to all its fields
+// 		pointers := []reflect.Value{}
+// 		serializedIdx := 0
+// 		for _, field := range fields {
+// 			if field.json || field.gob {
+// 				pointers = append(pointers, reflect.ValueOf(&serializedFields[serializedIdx]))
+// 				serializedIdx++
+// 			} else {
+// 				pointers = append(pointers, elem.Elem().FieldByName(field.name).Addr())
+// 			}
+// 		}
 
-		// Scan the row into the struct
-		if err := scan.Call(pointers)[0]; !err.IsNil() {
-			return errors.Trace(err.Interface().(error))
-		}
+// 		// Scan the row into the struct
+// 		if err := scan.Call(pointers)[0]; !err.IsNil() {
+// 			return errors.Trace(err.Interface().(error))
+// 		}
 
-		// Read serialized fields
-		serializedIdx = 0
-		for _, field := range fields {
-			switch {
-			case field.json && len(serializedFields[serializedIdx]) > 0:
-				decoder := json.NewDecoder(bytes.NewReader(serializedFields[serializedIdx]))
-				dest := elem.Elem().FieldByName(field.name).Addr().Interface()
-				if err := decoder.Decode(dest); err != nil {
-					return errors.Trace(err)
-				}
+// 		// Read serialized fields
+// 		serializedIdx = 0
+// 		for _, field := range fields {
+// 			switch {
+// 			case field.json && len(serializedFields[serializedIdx]) > 0:
+// 				decoder := json.NewDecoder(bytes.NewReader(serializedFields[serializedIdx]))
+// 				dest := elem.Elem().FieldByName(field.name).Addr().Interface()
+// 				if err := decoder.Decode(dest); err != nil {
+// 					return errors.Trace(err)
+// 				}
 
-				serializedIdx++
+// 				serializedIdx++
 
-			case field.gob:
-				decoder := gob.NewDecoder(bytes.NewReader(serializedFields[serializedIdx]))
-				dest := elem.Elem().FieldByName(field.name).Addr().Interface()
-				if err := decoder.Decode(dest); err != nil {
-					return errors.Trace(err)
-				}
+// 			case field.gob:
+// 				decoder := gob.NewDecoder(bytes.NewReader(serializedFields[serializedIdx]))
+// 				dest := elem.Elem().FieldByName(field.name).Addr().Interface()
+// 				if err := decoder.Decode(dest); err != nil {
+// 					return errors.Trace(err)
+// 				}
 
-				serializedIdx++
-			}
-		}
+// 				serializedIdx++
+// 			}
+// 		}
 
-		// Run hooks
-		if err := runAfterFindHook(elem); err != nil {
-			return errors.Trace(err)
-		}
+// 		// Run hooks
+// 		if err := runAfterFindHook(elem); err != nil {
+// 			return errors.Trace(err)
+// 		}
 
-		// Append to the result
-		outputValue.Elem().Set(reflect.Append(outputValue.Elem(), elem))
-	}
+// 		// Append to the result
+// 		outputValue.Elem().Set(reflect.Append(outputValue.Elem(), elem))
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-// Get returns the first result that matchs the query putting it in the output model.
-func (q *Query) Get(ctx context.Context, output interface{}) error {
-	outputValue := reflect.ValueOf(output)
-	outputType := reflect.TypeOf(output)
+// // Get returns the first result that matchs the query putting it in the output model.
+// func (q *Query) Get(ctx context.Context, output interface{}) error {
+// 	outputValue := reflect.ValueOf(output)
+// 	outputType := reflect.TypeOf(output)
 
-	// Some sanity checks about the output value
-	if outputValue.Kind() != reflect.Ptr || outputValue.Elem().Kind() != reflect.Struct {
-		return errors.New("output should be a pointer to a struct")
-	}
+// 	// Some sanity checks about the output value
+// 	if outputValue.Kind() != reflect.Ptr || outputValue.Elem().Kind() != reflect.Struct {
+// 		return errors.New("output should be a pointer to a struct")
+// 	}
 
-	// Limit the request to a single result
-	q.Limit(1)
+// 	// Limit the request to a single result
+// 	q.Limit(1)
 
-	// Buid an empty list for the results
-	result := reflect.New(reflect.SliceOf(outputType))
+// 	// Buid an empty list for the results
+// 	result := reflect.New(reflect.SliceOf(outputType))
 
-	// Fetch the result
-	getAll := reflect.ValueOf(q.GetAll)
-	params := []reflect.Value{
-		reflect.ValueOf(ctx),
-		result,
-	}
-	if err := getAll.Call(params)[0]; !err.IsNil() {
-		return errors.Trace(err.Interface().(error))
-	}
+// 	// Fetch the result
+// 	getAll := reflect.ValueOf(q.GetAll)
+// 	params := []reflect.Value{
+// 		reflect.ValueOf(ctx),
+// 		result,
+// 	}
+// 	if err := getAll.Call(params)[0]; !err.IsNil() {
+// 		return errors.Trace(err.Interface().(error))
+// 	}
 
-	resultElem := result.Elem()
-	if resultElem.Len() == 0 {
-		return ErrNoSuchEntity
-	}
+// 	resultElem := result.Elem()
+// 	if resultElem.Len() == 0 {
+// 		return ErrNoSuchEntity
+// 	}
 
-	// Output only the individual result, not the whole list
-	outputValue.Elem().Set(resultElem.Index(0).Elem())
+// 	// Output only the individual result, not the whole list
+// 	outputValue.Elem().Set(resultElem.Index(0).Elem())
 
-	return nil
-}
+// 	return nil
+// }
 
-// Limit returns only the specified number of results as a maximum
-func (q *Query) Limit(limit int64) *Query {
-	q = q.Clone()
+// // Limit returns only the specified number of results as a maximum
+// func (q *Query) Limit(limit int64) *Query {
+// 	q = q.Clone()
 
-	q.limit = limit
+// 	q.limit = limit
 
-	return q
-}
+// 	return q
+// }
 
-// Offset returns results starting from the specified row
-func (q *Query) Offset(offset int64) *Query {
-	q = q.Clone()
+// // Offset returns results starting from the specified row
+// func (q *Query) Offset(offset int64) *Query {
+// 	q = q.Clone()
 
-	q.offset = offset
+// 	q.offset = offset
 
-	return q
-}
+// 	return q
+// }
 
-// Order sets the order of the rows in the result
-func (q *Query) Order(order string) *Query {
-	q = q.Clone()
+// // Order sets the order of the rows in the result
+// func (q *Query) Order(order string) *Query {
+// 	q = q.Clone()
 
-	q.order = order
+// 	q.order = order
 
-	return q
-}
+// 	return q
+// }
 
-// Delete removes the models that match the query.
-func (q *Query) Delete(ctx context.Context, model interface{}) error {
-	_, err := q.DeleteRowsAffected(ctx, model)
-	return errors.Trace(err)
-}
+// // Delete removes the models that match the query.
+// func (q *Query) Delete(ctx context.Context, model interface{}) error {
+// 	_, err := q.DeleteRowsAffected(ctx, model)
+// 	return errors.Trace(err)
+// }
 
-// DeleteRowsAffected removes the models that match the query returning the number
-// of affected rows. This is very useful to implement optimistic locking in the models.
-func (q *Query) DeleteRowsAffected(ctx context.Context, model interface{}) (int64, error) {
-	modelValue := reflect.ValueOf(model)
-	modelType := reflect.TypeOf(model)
+// // DeleteRowsAffected removes the models that match the query returning the number
+// // of affected rows. This is very useful to implement optimistic locking in the models.
+// func (q *Query) DeleteRowsAffected(ctx context.Context, model interface{}) (int64, error) {
+// 	modelValue := reflect.ValueOf(model)
+// 	modelType := reflect.TypeOf(model)
 
-	// Some sanity checks about the model
-	if modelValue.Kind() != reflect.Ptr || modelValue.Elem().Kind() != reflect.Struct {
-		return 0, errors.New("model should be a pointer to a struct")
-	}
+// 	// Some sanity checks about the model
+// 	if modelValue.Kind() != reflect.Ptr || modelValue.Elem().Kind() != reflect.Struct {
+// 		return 0, errors.New("model should be a pointer to a struct")
+// 	}
 
-	// Build the WHERE conditions of the query
-	var conditions string
-	if len(q.conditions) > 0 {
-		conditions = fmt.Sprintf(" WHERE %s", strings.Join(q.conditions, " AND "))
-	}
+// 	// Build the WHERE conditions of the query
+// 	var conditions string
+// 	if len(q.conditions) > 0 {
+// 		conditions = fmt.Sprintf(" WHERE %s", strings.Join(q.conditions, " AND "))
+// 	}
 
-	// Build the table name
-	tableName := getTableName(modelType.Elem())
-	query := fmt.Sprintf("DELETE FROM `%s`%s", tableName, conditions)
+// 	// Build the table name
+// 	tableName := getTableName(modelType.Elem())
+// 	query := fmt.Sprintf("DELETE FROM `%s`%s", tableName, conditions)
 
-	// Exec the query
-	conn := FromContext(ctx)
-	if conn.Debug {
-		log.Println("Delete:", query, "-->", q.values)
-	}
-	result, err := conn.DB.Exec(query, q.values...)
-	if err != nil {
-		return 0, errors.Annotate(err, query)
-	}
+// 	// Exec the query
+// 	conn := FromContext(ctx)
+// 	if conn.Debug {
+// 		log.Println("Delete:", query, "-->", q.values)
+// 	}
+// 	result, err := conn.DB.Exec(query, q.values...)
+// 	if err != nil {
+// 		return 0, errors.Annotate(err, query)
+// 	}
 
-	// Number of rows affected, this is always present in the MySQL driver so it's
-	// not a performance hit to call it always
-	n, err := result.RowsAffected()
-	if err != nil {
-		return 0, errors.Trace(err)
-	}
+// 	// Number of rows affected, this is always present in the MySQL driver so it's
+// 	// not a performance hit to call it always
+// 	n, err := result.RowsAffected()
+// 	if err != nil {
+// 		return 0, errors.Trace(err)
+// 	}
 
-	return n, nil
-}
+// 	return n, nil
+// }

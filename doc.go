@@ -1,3 +1,3 @@
-// Package database writes and reads structs to SQL tables. Also helps building
-// the queries and executing them in a OO fashion (with structs and interfaces).
+// Package database writes and reads structs to SQL tables and helps building the queries
+// with a very simple access model.
 package database

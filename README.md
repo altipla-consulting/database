@@ -32,7 +32,7 @@ Install test libs:
 
 ```shell
 go get github.com/stretchr/testify
-go get upper.io/db.v3
+go get github.com/go-sql-driver/mysql
 ```
 
 Run the tests:

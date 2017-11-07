@@ -1,30 +1,32 @@
 package database
 
 import (
-	"reflect"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
-type Property struct {
-	Name string
-	Value interface{}
+type property struct {
+	Name       string
+	Value      interface{}
 	PrimaryKey bool
-	OmitEmpty bool
+	OmitEmpty  bool
+	Pointer    interface{}
 }
 
-func extractModelProps(model Model) ([]*Property, error) {
-	v := reflect.ValueOf(model)
-	t := reflect.TypeOf(model)
+func extractModelProps(model Model) ([]*property, error) {
+	v := reflect.ValueOf(model).Elem()
+	t := reflect.TypeOf(model).Elem()
 
-	props := []*Property{}
+	props := []*property{}
 	for i := 0; i < t.NumField(); i++ {
 		fv := v.Field(i)
 		ft := t.Field(i)
 
-		prop := &Property{
-			Name: ft.Name,
-			Value: fv.Interface(),
+		prop := &property{
+			Name:    ft.Name,
+			Value:   fv.Interface(),
+			Pointer: fv.Addr().Interface(),
 		}
 
 		tag := ft.Tag.Get("db")
