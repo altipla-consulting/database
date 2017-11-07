@@ -287,3 +287,23 @@ func TestCountLimit(t *testing.T) {
 
 	require.Equal(t, models[0].Name, "bar")
 }
+
+func TestNextCallHooks(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+	ctx := context.Background()
+
+	m := new(testingAutoModel)
+	require.Nil(t, db.Put(ctx, m))
+
+	m = new(testingAutoModel)
+	require.Nil(t, db.Put(ctx, m))
+
+	var models []*testingAutoModel
+	require.Nil(t, db.GetAll(ctx, &models))
+
+	require.Len(t, models, 2)
+
+	require.True(t, models[0].IsInserted())
+	require.True(t, models[1].IsInserted())
+}
