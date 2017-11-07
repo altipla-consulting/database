@@ -218,5 +218,11 @@ func (db *Database) Delete(ctx context.Context, model Model) error {
 		return err
 	}
 
+	if h, ok := model.(ModelTrackingAfterDeleteHooker); ok {
+		if err := h.ModelTrackingAfterDelete(props); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

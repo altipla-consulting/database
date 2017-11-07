@@ -31,6 +31,11 @@ func (tracking *ModelTracking) ModelTrackingAfterPut(props []*Property) error {
 	return nil
 }
 
+func (tracking *ModelTracking) ModelTrackingAfterDelete(props []*Property) error {
+	tracking.inserted = false
+	return nil
+}
+
 type Property struct {
 	// Name of the column. Already escaped.
 	Name string

@@ -7,3 +7,7 @@ type ModelTrackingAfterGetHooker interface {
 type ModelTrackingAfterPutHooker interface {
 	ModelTrackingAfterPut(props []*Property) error
 }
+
+type ModelTrackingAfterDeleteHooker interface {
+	ModelTrackingAfterDelete(props []*Property) error
+}
