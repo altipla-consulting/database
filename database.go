@@ -68,6 +68,10 @@ func (db *Database) Get(ctx context.Context, model Model) error {
 		return err
 	}
 
+	for _, prop := range props {
+		prop.Value = reflect.ValueOf(prop.Pointer).Elem().Interface()
+	}
+
 	if h, ok := model.(ModelTrackingAfterGetHooker); ok {
 		if err := h.ModelTrackingAfterGet(props); err != nil {
 			return err

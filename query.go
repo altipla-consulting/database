@@ -122,7 +122,7 @@ func (q *Query) GetAll(ctx context.Context, models interface{}) error {
 
 	for {
 		model := reflect.New(t.Elem().Elem())
-		if err := it.Next(model.Interface()); err != nil {
+		if err := it.Next(model.Interface().(Model)); err != nil {
 			if err == Done {
 				break
 			}
@@ -195,7 +195,7 @@ func (it *Iterator) Close() {
 	it.rows.Close()
 }
 
-func (it *Iterator) Next(model interface{}) error {
+func (it *Iterator) Next(model Model) error {
 	v := reflect.ValueOf(model).Elem()
 
 	if err := it.rows.Err(); err != nil {
@@ -218,6 +218,17 @@ func (it *Iterator) Next(model interface{}) error {
 	}
 	if err := it.rows.Scan(ptrs...); err != nil {
 		return err
+	}
+
+	for i, prop := range it.props {
+		prop.Pointer = ptrs[i]
+		prop.Value = reflect.ValueOf(prop.Pointer).Elem().Interface()
+	}
+
+	if h, ok := model.(ModelTrackingAfterGetHooker); ok {
+		if err := h.ModelTrackingAfterGet(it.props); err != nil {
+			return err
+		}
 	}
 
 	return nil
