@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -35,7 +34,7 @@ func newCollection(db *Database, model Model) *Collection {
 	return c
 }
 
-func (c *Collection) Get(ctx context.Context, instance Model) error {
+func (c *Collection) Get(instance Model) error {
 	modelProps := updatedProps(c.props, instance)
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
@@ -58,7 +57,7 @@ func (c *Collection) Get(ctx context.Context, instance Model) error {
 	for _, prop := range modelProps {
 		pointers = append(pointers, prop.Pointer)
 	}
-	if err := c.sess.QueryRowContext(ctx, statement, values...).Scan(pointers...); err != nil {
+	if err := c.sess.QueryRow(statement, values...).Scan(pointers...); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNoSuchEntity
 		}
@@ -77,7 +76,7 @@ func (c *Collection) Get(ctx context.Context, instance Model) error {
 	return nil
 }
 
-func (c *Collection) Put(ctx context.Context, instance Model) error {
+func (c *Collection) Put(instance Model) error {
 	modelt := reflect.TypeOf(c.model)
 	instancet := reflect.TypeOf(instance)
 	if modelt != instancet {
@@ -122,7 +121,7 @@ func (c *Collection) Put(ctx context.Context, instance Model) error {
 		log.Println("database [Put]:", q)
 	}
 
-	result, err := c.sess.ExecContext(ctx, q, values...)
+	result, err := c.sess.Exec(q, values...)
 	if err != nil {
 		return err
 	}
@@ -191,7 +190,7 @@ func (c *Collection) Order(column string) *Collection {
 	return c
 }
 
-func (c *Collection) Delete(ctx context.Context, instance Model) error {
+func (c *Collection) Delete(instance Model) error {
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
 		conditions: c.conditions,
@@ -211,7 +210,7 @@ func (c *Collection) Delete(ctx context.Context, instance Model) error {
 		log.Println("database [Delete]:", statement)
 	}
 
-	if _, err := c.sess.ExecContext(ctx, statement, values...); err != nil {
+	if _, err := c.sess.Exec(statement, values...); err != nil {
 		return err
 	}
 
@@ -224,7 +223,7 @@ func (c *Collection) Delete(ctx context.Context, instance Model) error {
 	return nil
 }
 
-func (c *Collection) Iterator(ctx context.Context) (*Iterator, error) {
+func (c *Collection) Iterator() (*Iterator, error) {
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
 		conditions: c.conditions,
@@ -239,7 +238,7 @@ func (c *Collection) Iterator(ctx context.Context) (*Iterator, error) {
 		log.Println("database [Iterator]:", sql)
 	}
 
-	rows, err := c.sess.QueryContext(ctx, sql, values...)
+	rows, err := c.sess.Query(sql, values...)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +246,7 @@ func (c *Collection) Iterator(ctx context.Context) (*Iterator, error) {
 	return &Iterator{rows, c.props}, nil
 }
 
-func (c *Collection) GetAll(ctx context.Context, models interface{}) error {
+func (c *Collection) GetAll(models interface{}) error {
 	v := reflect.ValueOf(models)
 	t := reflect.TypeOf(models)
 
@@ -267,7 +266,7 @@ func (c *Collection) GetAll(ctx context.Context, models interface{}) error {
 
 	dest := reflect.MakeSlice(t, 0, 0)
 
-	it, err := c.Iterator(ctx)
+	it, err := c.Iterator()
 	if err != nil {
 		return err
 	}
@@ -291,7 +290,7 @@ func (c *Collection) GetAll(ctx context.Context, models interface{}) error {
 	return nil
 }
 
-func (c *Collection) Count(ctx context.Context) (int64, error) {
+func (c *Collection) Count() (int64, error) {
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
 		conditions: c.conditions,
@@ -303,14 +302,14 @@ func (c *Collection) Count(ctx context.Context) (int64, error) {
 	}
 
 	var n int64
-	if err := c.sess.QueryRowContext(ctx, sql, values...).Scan(&n); err != nil {
+	if err := c.sess.QueryRow(sql, values...).Scan(&n); err != nil {
 		return 0, err
 	}
 
 	return n, nil
 }
 
-func (c *Collection) GetMulti(ctx context.Context, keys interface{}, models interface{}) error {
+func (c *Collection) GetMulti(keys interface{}, models interface{}) error {
 	v := reflect.ValueOf(models)
 	t := reflect.TypeOf(models)
 	keyst := reflect.TypeOf(keys)
@@ -348,7 +347,7 @@ func (c *Collection) GetMulti(ctx context.Context, keys interface{}, models inte
 
 	fetch := reflect.New(t)
 	fetch.Elem().Set(reflect.MakeSlice(t, 0, 0))
-	if err := c.GetAll(ctx, fetch.Interface()); err != nil {
+	if err := c.GetAll(fetch.Interface()); err != nil {
 		return err
 	}
 

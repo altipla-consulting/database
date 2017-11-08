@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -13,7 +12,7 @@ type Database struct {
 	sess *sql.DB
 }
 
-func Open(ctx context.Context, credentials Credentials) (*Database, error) {
+func Open(credentials Credentials) (*Database, error) {
 	if isDebug() {
 		log.Println("database [Open]:", credentials)
 	}
@@ -26,7 +25,7 @@ func Open(ctx context.Context, credentials Credentials) (*Database, error) {
 	sess.SetMaxOpenConns(3)
 	sess.SetMaxIdleConns(0)
 
-	if err := sess.PingContext(ctx); err != nil {
+	if err := sess.Ping(); err != nil {
 		return nil, fmt.Errorf("database: cannot ping mysql: %s", err)
 	}
 
@@ -41,7 +40,7 @@ func (db *Database) Close() {
 	db.sess.Close()
 }
 
-func (db *Database) Exec(ctx context.Context, query string, params ...interface{}) error {
-	_, err := db.sess.ExecContext(ctx, query, params...)
+func (db *Database) Exec(query string, params ...interface{}) error {
+	_, err := db.sess.Exec(query, params...)
 	return err
 }

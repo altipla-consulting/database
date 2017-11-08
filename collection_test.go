@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,14 +9,13 @@ import (
 func TestGet(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
-	require.Nil(t, testDB.Exec(ctx, `INSERT INTO testing(code, name) VALUES ("foo", "foov"), ("bar", "barv")`))
+	require.Nil(t, testDB.Exec(`INSERT INTO testing(code, name) VALUES ("foo", "foov"), ("bar", "barv")`))
 
 	m := &testingModel{
 		Code: "bar",
 	}
-	require.Nil(t, testings.Get(ctx, m))
+	require.Nil(t, testings.Get(m))
 
 	require.Equal(t, "barv", m.Name)
 }
@@ -25,25 +23,23 @@ func TestGet(t *testing.T) {
 func TestGetNotFound(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingModel{
 		Code: "foo",
 		Name: "untouch",
 	}
-	require.EqualError(t, testings.Get(ctx, m), ErrNoSuchEntity.Error())
+	require.EqualError(t, testings.Get(m), ErrNoSuchEntity.Error())
 }
 
 func TestGetNotTouchCols(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingModel{
 		Code: "foo",
 		Name: "untouched",
 	}
-	require.EqualError(t, testings.Get(ctx, m), ErrNoSuchEntity.Error())
+	require.EqualError(t, testings.Get(m), ErrNoSuchEntity.Error())
 
 	require.Equal(t, "untouched", m.Name)
 }
@@ -51,112 +47,107 @@ func TestGetNotTouchCols(t *testing.T) {
 func TestInsert(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingModel{
 		Code: "foo",
 		Name: "bar",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	other := &testingModel{
 		Code: "foo",
 	}
-	require.Nil(t, testings.Get(ctx, other))
+	require.Nil(t, testings.Get(other))
 	require.Equal(t, "bar", other.Name)
 }
 
 func TestInsertAuto(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingAutoModel{
 		Name: "foo",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 	require.EqualValues(t, m.ID, 1)
 
 	m = &testingAutoModel{
 		Name: "bar",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 	require.EqualValues(t, m.ID, 2)
 
 	other := &testingAutoModel{
 		ID: 1,
 	}
-	require.Nil(t, testingsAuto.Get(ctx, other))
+	require.Nil(t, testingsAuto.Get(other))
 	require.Equal(t, "foo", other.Name)
 
 	other = &testingAutoModel{
 		ID: 2,
 	}
-	require.Nil(t, testingsAuto.Get(ctx, other))
+	require.Nil(t, testingsAuto.Get(other))
 	require.Equal(t, "bar", other.Name)
 }
 
 func TestUpdate(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingModel{
 		Code: "foo",
 		Name: "bar",
 	}
-	require.Nil(t, testings.Put(ctx, m))
-	require.Nil(t, testings.Get(ctx, m))
+	require.Nil(t, testings.Put(m))
+	require.Nil(t, testings.Get(m))
 
 	m.Name = "qux"
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	other := &testingModel{
 		Code: "foo",
 	}
-	require.Nil(t, testings.Get(ctx, other))
+	require.Nil(t, testings.Get(other))
 	require.Equal(t, "qux", other.Name)
 }
 
 func TestInsertAndUpdate(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingModel{
 		Code: "foo",
 		Name: "bar",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	m.Name = "qux"
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	other := &testingModel{
 		Code: "foo",
 	}
-	require.Nil(t, testings.Get(ctx, other))
+	require.Nil(t, testings.Get(other))
 	require.Equal(t, "qux", other.Name)
 }
 
 func TestDelete(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingModel{
 		Code: "foo",
 		Name: "bar",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
-	n, err := testings.Count(ctx)
+	n, err := testings.Count()
 	require.Nil(t, err)
 	require.EqualValues(t, n, 1)
 
-	require.Nil(t, testings.Delete(ctx, m))
+	require.Nil(t, testings.Delete(m))
 
-	n, err = testings.Count(ctx)
+	n, err = testings.Count()
 	require.Nil(t, err)
 	require.EqualValues(t, n, 0)
 }
@@ -164,10 +155,9 @@ func TestDelete(t *testing.T) {
 func TestGetAllEmpty(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	var models []*testingModel
-	require.Nil(t, testings.GetAll(ctx, &models))
+	require.Nil(t, testings.GetAll(&models))
 
 	require.Len(t, models, 0)
 }
@@ -175,22 +165,21 @@ func TestGetAllEmpty(t *testing.T) {
 func TestGetAll(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingModel{
 		Code: "foo",
 		Name: "foo name",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	m = &testingModel{
 		Code: "bar",
 		Name: "bar name",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	var models []*testingModel
-	require.Nil(t, testings.GetAll(ctx, &models))
+	require.Nil(t, testings.GetAll(&models))
 
 	require.Len(t, models, 2)
 
@@ -203,28 +192,27 @@ func TestGetAll(t *testing.T) {
 func TestGetAllFiltering(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingModel{
 		Code: "foo",
 		Name: "test",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	m = &testingModel{
 		Code: "bar",
 		Name: "test",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	m = &testingModel{
 		Code: "qux",
 		Name: "ignore",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	var models []*testingModel
-	require.Nil(t, testings.Filter("name", "test").GetAll(ctx, &models))
+	require.Nil(t, testings.Filter("name", "test").GetAll(&models))
 
 	require.Len(t, models, 2)
 
@@ -237,25 +225,24 @@ func TestGetAllFiltering(t *testing.T) {
 func TestGetAllOperator(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingAutoModel{
 		Name: "foo",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = &testingAutoModel{
 		Name: "bar",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = &testingAutoModel{
 		Name: "ignore",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	var models []*testingAutoModel
-	require.Nil(t, testingsAuto.Filter("id <=", 2).GetAll(ctx, &models))
+	require.Nil(t, testingsAuto.Filter("id <=", 2).GetAll(&models))
 
 	require.Len(t, models, 2)
 
@@ -266,25 +253,24 @@ func TestGetAllOperator(t *testing.T) {
 func TestGetAllOperatorAndPlaceholder(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingAutoModel{
 		Name: "foo",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = &testingAutoModel{
 		Name: "bar",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = &testingAutoModel{
 		Name: "baz",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	var models []*testingAutoModel
-	require.Nil(t, testingsAuto.Filter("name LIKE ?", "ba%").GetAll(ctx, &models))
+	require.Nil(t, testingsAuto.Filter("name LIKE ?", "ba%").GetAll(&models))
 
 	require.Len(t, models, 2)
 
@@ -295,28 +281,27 @@ func TestGetAllOperatorAndPlaceholder(t *testing.T) {
 func TestGetAllOperatorIN(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingModel{
 		Code: "foo",
 		Name: "foo name",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	m = &testingModel{
 		Code: "bar",
 		Name: "bar name",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	m = &testingModel{
 		Code: "qux",
 		Name: "ignore",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	var models []*testingModel
-	require.Nil(t, testings.Filter("name IN", []string{"foo name", "bar name"}).GetAll(ctx, &models))
+	require.Nil(t, testings.Filter("name IN", []string{"foo name", "bar name"}).GetAll(&models))
 
 	require.Len(t, models, 2)
 
@@ -327,20 +312,19 @@ func TestGetAllOperatorIN(t *testing.T) {
 func TestGetOrder(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingModel{
 		Code: "foo",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	m = &testingModel{
 		Code: "bar",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	var models []*testingModel
-	require.Nil(t, testings.Order("-code").GetAll(ctx, &models))
+	require.Nil(t, testings.Order("-code").GetAll(&models))
 
 	require.Len(t, models, 2)
 
@@ -351,25 +335,24 @@ func TestGetOrder(t *testing.T) {
 func TestMultipleFilters(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingAutoModel{
 		Name: "foo",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = &testingAutoModel{
 		Name: "bar",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = &testingAutoModel{
 		Name: "qux",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	var models []*testingAutoModel
-	require.Nil(t, testingsAuto.Filter("id >", 1).Filter("id <", 3).GetAll(ctx, &models))
+	require.Nil(t, testingsAuto.Filter("id >", 1).Filter("id <", 3).GetAll(&models))
 
 	require.Len(t, models, 1)
 
@@ -379,18 +362,17 @@ func TestMultipleFilters(t *testing.T) {
 func TestCount(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := new(testingAutoModel)
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = new(testingAutoModel)
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = new(testingAutoModel)
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
-	n, err := testingsAuto.Count(ctx)
+	n, err := testingsAuto.Count()
 	require.Nil(t, err)
 	require.EqualValues(t, n, 3)
 }
@@ -398,18 +380,17 @@ func TestCount(t *testing.T) {
 func TestCountFilter(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := new(testingAutoModel)
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = new(testingAutoModel)
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = new(testingAutoModel)
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
-	n, err := testingsAuto.Filter("id >=", 2).Count(ctx)
+	n, err := testingsAuto.Filter("id >=", 2).Count()
 	require.Nil(t, err)
 	require.EqualValues(t, n, 2)
 }
@@ -417,25 +398,24 @@ func TestCountFilter(t *testing.T) {
 func TestLimit(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingAutoModel{
 		Name: "foo",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = &testingAutoModel{
 		Name: "bar",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = &testingAutoModel{
 		Name: "baz",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	var models []*testingAutoModel
-	require.Nil(t, testingsAuto.Limit(1).Offset(1).GetAll(ctx, &models))
+	require.Nil(t, testingsAuto.Limit(1).Offset(1).GetAll(&models))
 
 	require.Len(t, models, 1)
 
@@ -445,25 +425,24 @@ func TestLimit(t *testing.T) {
 func TestGetMultiStrings(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingModel{
 		Code: "foo",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	m = &testingModel{
 		Code: "bar",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	m = &testingModel{
 		Code: "baz",
 	}
-	require.Nil(t, testings.Put(ctx, m))
+	require.Nil(t, testings.Put(m))
 
 	var models []*testingModel
-	require.Nil(t, testings.GetMulti(ctx, []string{"foo", "bar"}, &models))
+	require.Nil(t, testings.GetMulti([]string{"foo", "bar"}, &models))
 
 	require.Len(t, models, 2)
 
@@ -474,25 +453,24 @@ func TestGetMultiStrings(t *testing.T) {
 func TestGetMultiIntegers(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingAutoModel{
 		Name: "foo",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = &testingAutoModel{
 		Name: "bar",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	m = &testingAutoModel{
 		Name: "baz",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	var models []*testingAutoModel
-	require.Nil(t, testingsAuto.GetMulti(ctx, []int64{3, 2}, &models))
+	require.Nil(t, testingsAuto.GetMulti([]int64{3, 2}, &models))
 
 	require.Len(t, models, 2)
 
@@ -503,15 +481,14 @@ func TestGetMultiIntegers(t *testing.T) {
 func TestGetMultiError(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
-	ctx := context.Background()
 
 	m := &testingAutoModel{
 		Name: "foo",
 	}
-	require.Nil(t, testingsAuto.Put(ctx, m))
+	require.Nil(t, testingsAuto.Put(m))
 
 	var models []*testingAutoModel
-	err := testingsAuto.GetMulti(ctx, []int64{2, 1}, &models)
+	err := testingsAuto.GetMulti([]int64{2, 1}, &models)
 	require.EqualError(t, err, "database: no such entity; <nil>")
 
 	merr, ok := err.(MultiError)

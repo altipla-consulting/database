@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -38,10 +37,8 @@ func (model *testingAutoModel) TableName() string {
 }
 
 func initDatabase(t *testing.T) {
-	ctx := context.Background()
-
 	var err error
-	testDB, err = Open(ctx, Credentials{
+	testDB, err = Open(Credentials{
 		User:      "dev-user",
 		Password:  "dev-password",
 		Address:   "localhost",
@@ -51,8 +48,8 @@ func initDatabase(t *testing.T) {
 	})
 	require.Nil(t, err)
 
-	require.Nil(t, testDB.Exec(ctx, `DROP TABLE IF EXISTS testing`))
-	err = testDB.Exec(ctx, `
+	require.Nil(t, testDB.Exec(`DROP TABLE IF EXISTS testing`))
+	err = testDB.Exec(`
     CREATE TABLE testing (
       code VARCHAR(191),
       name VARCHAR(191),
@@ -62,8 +59,8 @@ func initDatabase(t *testing.T) {
   `)
 	require.Nil(t, err)
 
-	require.Nil(t, testDB.Exec(ctx, `DROP TABLE IF EXISTS testing_auto`))
-	err = testDB.Exec(ctx, `
+	require.Nil(t, testDB.Exec(`DROP TABLE IF EXISTS testing_auto`))
+	err = testDB.Exec(`
     CREATE TABLE testing_auto (
       id INT(11) NOT NULL AUTO_INCREMENT,
       name VARCHAR(191),
