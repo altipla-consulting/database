@@ -2,6 +2,7 @@ package database
 
 import (
 	"errors"
+	"strings"
 )
 
 var (
@@ -13,3 +14,28 @@ var (
 	// have been read.
 	Done = errors.New("query has no more results")
 )
+
+type MultiError []error
+
+func (merr MultiError) Error() string {
+	var msg []string
+	for _, err := range merr {
+		if err == nil {
+			msg = append(msg, "<nil>")
+		} else {
+			msg = append(msg, err.Error())
+		}
+	}
+
+	return strings.Join(msg, "; ")
+}
+
+func (merr MultiError) HasError() bool {
+	for _, err := range merr {
+		if err != nil {
+			return true
+		}
+	}
+
+	return false
+}

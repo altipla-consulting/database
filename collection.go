@@ -78,6 +78,12 @@ func (c *Collection) Get(ctx context.Context, instance Model) error {
 }
 
 func (c *Collection) Put(ctx context.Context, instance Model) error {
+	modelt := reflect.TypeOf(c.model)
+	instancet := reflect.TypeOf(instance)
+	if modelt != instancet {
+		return fmt.Errorf("database: expected instance of %s and got a instance of %s", modelt, instancet)
+	}
+
 	b := &sqlBuilder{
 		table: c.model.TableName(),
 	}
@@ -254,6 +260,11 @@ func (c *Collection) GetAll(ctx context.Context, models interface{}) error {
 		return fmt.Errorf("database: pass a slice to GetAll")
 	}
 
+	modelt := reflect.TypeOf(c.model)
+	if t.Elem() != modelt {
+		return fmt.Errorf("database: expected a slice of %s and got a slice of %s", modelt, t.Elem())
+	}
+
 	dest := reflect.MakeSlice(t, 0, 0)
 
 	it, err := c.Iterator(ctx)
@@ -302,7 +313,8 @@ func (c *Collection) Count(ctx context.Context) (int64, error) {
 func (c *Collection) GetMulti(ctx context.Context, keys interface{}, models interface{}) error {
 	v := reflect.ValueOf(models)
 	t := reflect.TypeOf(models)
-	keysv := reflect.ValueOf(models)
+	keyst := reflect.TypeOf(keys)
+	keysv := reflect.ValueOf(keys)
 
 	if v.Kind() != reflect.Ptr {
 		return fmt.Errorf("database: pass a pointer to a slice of models to GetAll")
@@ -310,16 +322,89 @@ func (c *Collection) GetMulti(ctx context.Context, keys interface{}, models inte
 	v = v.Elem()
 	t = t.Elem()
 	if v.Kind() != reflect.Slice {
-		return fmt.Errorf("database: pass a slice to GetAll")
+		return fmt.Errorf("database: pass a slice of models to GetAll")
 	}
 
-	if keysv.Kind() != reflect.Slice {
+	if keyst.Kind() != reflect.Slice {
 		return fmt.Errorf("database: pass a slice of keys to GetAll")
 	}
-	keysv = v.Elem()
-	if keysv.Kind() != reflect.Int64 && keysv.Kind() != reflect.String {
+	keyst = keyst.Elem()
+	if keyst.Kind() != reflect.Int64 && keyst.Kind() != reflect.String {
 		return fmt.Errorf("database: pass a slice of string/int64 keys to GetAll")
 	}
 
+	var pk *Property
+	for _, prop := range c.props {
+		if prop.PrimaryKey {
+			if pk != nil {
+				return fmt.Errorf("database: cannot use GetMulti with multiple primary keys")
+			}
+
+			pk = prop
+		}
+	}
+
+	c = c.Filter(fmt.Sprintf("%s IN", pk.Name), keys)
+
+	fetch := reflect.New(t)
+	fetch.Elem().Set(reflect.MakeSlice(t, 0, 0))
+	if err := c.GetAll(ctx, fetch.Interface()); err != nil {
+		return err
+	}
+
+	stringKeys := map[string]reflect.Value{}
+	intKeys := map[int64]reflect.Value{}
+
+	var merr MultiError
+	for i := 0; i < fetch.Elem().Len(); i++ {
+		model := fetch.Elem().Index(i)
+
+		pk := model.Elem().FieldByName(pk.Field).Interface()
+		switch v := pk.(type) {
+		case string:
+			stringKeys[v] = model
+		case int64:
+			intKeys[v] = model
+
+		default:
+			panic("should not reach here")
+		}
+	}
+
+	results := reflect.MakeSlice(t, 0, 0)
+	for i := 0; i < keysv.Len(); i++ {
+		switch v := keysv.Index(i).Interface().(type) {
+		case string:
+			model, ok := stringKeys[v]
+			if !ok {
+				merr = append(merr, ErrNoSuchEntity)
+				results = reflect.Append(results, reflect.Zero(t.Elem()))
+				continue
+			}
+
+			merr = append(merr, nil)
+			results = reflect.Append(results, model)
+
+		case int64:
+			model, ok := intKeys[v]
+			if !ok {
+				merr = append(merr, ErrNoSuchEntity)
+				results = reflect.Append(results, reflect.Zero(t.Elem()))
+				continue
+			}
+
+			merr = append(merr, nil)
+			results = reflect.Append(results, model)
+
+		default:
+			panic("should not reach here")
+		}
+	}
+
+	v.Set(results)
+
+	if merr.HasError() {
+		return merr
+	}
 	return nil
 }

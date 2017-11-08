@@ -441,3 +441,86 @@ func TestLimit(t *testing.T) {
 
 	require.Equal(t, models[0].Name, "bar")
 }
+
+func TestGetMultiStrings(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+	ctx := context.Background()
+
+	m := &testingModel{
+		Code: "foo",
+	}
+	require.Nil(t, testings.Put(ctx, m))
+
+	m = &testingModel{
+		Code: "bar",
+	}
+	require.Nil(t, testings.Put(ctx, m))
+
+	m = &testingModel{
+		Code: "baz",
+	}
+	require.Nil(t, testings.Put(ctx, m))
+
+	var models []*testingModel
+	require.Nil(t, testings.GetMulti(ctx, []string{"foo", "bar"}, &models))
+
+	require.Len(t, models, 2)
+
+	require.Equal(t, models[0].Code, "foo")
+	require.Equal(t, models[1].Code, "bar")
+}
+
+func TestGetMultiIntegers(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+	ctx := context.Background()
+
+	m := &testingAutoModel{
+		Name: "foo",
+	}
+	require.Nil(t, testingsAuto.Put(ctx, m))
+
+	m = &testingAutoModel{
+		Name: "bar",
+	}
+	require.Nil(t, testingsAuto.Put(ctx, m))
+
+	m = &testingAutoModel{
+		Name: "baz",
+	}
+	require.Nil(t, testingsAuto.Put(ctx, m))
+
+	var models []*testingAutoModel
+	require.Nil(t, testingsAuto.GetMulti(ctx, []int64{3, 2}, &models))
+
+	require.Len(t, models, 2)
+
+	require.Equal(t, models[0].Name, "baz")
+	require.Equal(t, models[1].Name, "bar")
+}
+
+func TestGetMultiError(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+	ctx := context.Background()
+
+	m := &testingAutoModel{
+		Name: "foo",
+	}
+	require.Nil(t, testingsAuto.Put(ctx, m))
+
+	var models []*testingAutoModel
+	err := testingsAuto.GetMulti(ctx, []int64{2, 1}, &models)
+	require.EqualError(t, err, "database: no such entity; <nil>")
+
+	merr, ok := err.(MultiError)
+	require.True(t, ok)
+	require.EqualError(t, merr[0], ErrNoSuchEntity.Error())
+	require.Nil(t, merr[1])
+
+	require.Len(t, models, 2)
+
+	require.Nil(t, models[0])
+	require.Equal(t, models[1].Name, "foo")
+}
