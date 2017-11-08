@@ -12,7 +12,7 @@ func TestGet(t *testing.T) {
 	defer closeDatabase()
 	ctx := context.Background()
 
-	require.Nil(t, db.Exec(ctx, `INSERT INTO testing(code, name) VALUES ("foo", "foov"), ("bar", "barv")`))
+	require.Nil(t, testDB.Exec(ctx, `INSERT INTO testing(code, name) VALUES ("foo", "foov"), ("bar", "barv")`))
 
 	m := &testingModel{
 		Code: "bar",
