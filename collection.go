@@ -58,7 +58,7 @@ func (c *Collection) Get(ctx context.Context, instance Model) error {
 	for _, prop := range modelProps {
 		pointers = append(pointers, prop.Pointer)
 	}
-	if err := db.sess.QueryRowContext(ctx, statement, values...).Scan(pointers...); err != nil {
+	if err := c.sess.QueryRowContext(ctx, statement, values...).Scan(pointers...); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNoSuchEntity
 		}
@@ -122,7 +122,7 @@ func (c *Collection) Put(ctx context.Context, instance Model) error {
 		log.Println("database [Put]:", q)
 	}
 
-	result, err := db.sess.ExecContext(ctx, q, values...)
+	result, err := c.sess.ExecContext(ctx, q, values...)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func (c *Collection) Delete(ctx context.Context, instance Model) error {
 		log.Println("database [Delete]:", statement)
 	}
 
-	if _, err := db.sess.ExecContext(ctx, statement, values...); err != nil {
+	if _, err := c.sess.ExecContext(ctx, statement, values...); err != nil {
 		return err
 	}
 
@@ -303,7 +303,7 @@ func (c *Collection) Count(ctx context.Context) (int64, error) {
 	}
 
 	var n int64
-	if err := db.sess.QueryRowContext(ctx, sql, values...).Scan(&n); err != nil {
+	if err := c.sess.QueryRowContext(ctx, sql, values...).Scan(&n); err != nil {
 		return 0, err
 	}
 

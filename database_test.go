@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	db           *Database
+	testDB       *Database
 	testings     *Collection
 	testingsAuto *Collection
 )
@@ -41,7 +41,7 @@ func initDatabase(t *testing.T) {
 	ctx := context.Background()
 
 	var err error
-	db, err = Open(ctx, Credentials{
+	testDB, err = Open(ctx, Credentials{
 		User:      "dev-user",
 		Password:  "dev-password",
 		Address:   "localhost",
@@ -51,8 +51,8 @@ func initDatabase(t *testing.T) {
 	})
 	require.Nil(t, err)
 
-	require.Nil(t, db.Exec(ctx, `DROP TABLE IF EXISTS testing`))
-	err = db.Exec(ctx, `
+	require.Nil(t, testDB.Exec(ctx, `DROP TABLE IF EXISTS testing`))
+	err = testDB.Exec(ctx, `
     CREATE TABLE testing (
       code VARCHAR(191),
       name VARCHAR(191),
@@ -62,8 +62,8 @@ func initDatabase(t *testing.T) {
   `)
 	require.Nil(t, err)
 
-	require.Nil(t, db.Exec(ctx, `DROP TABLE IF EXISTS testing_auto`))
-	err = db.Exec(ctx, `
+	require.Nil(t, testDB.Exec(ctx, `DROP TABLE IF EXISTS testing_auto`))
+	err = testDB.Exec(ctx, `
     CREATE TABLE testing_auto (
       id INT(11) NOT NULL AUTO_INCREMENT,
       name VARCHAR(191),
@@ -73,10 +73,10 @@ func initDatabase(t *testing.T) {
   `)
 	require.Nil(t, err)
 
-	testings = db.Collection(new(testingModel))
-	testingsAuto = db.Collection(new(testingAutoModel))
+	testings = testDB.Collection(new(testingModel))
+	testingsAuto = testDB.Collection(new(testingAutoModel))
 }
 
 func closeDatabase() {
-	db.Close()
+	testDB.Close()
 }
