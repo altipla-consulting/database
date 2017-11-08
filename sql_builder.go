@@ -3,25 +3,14 @@ package database
 import (
 	"fmt"
 	"strings"
-	"reflect"
 )
 
 type sqlBuilder struct {
-  table string
-  props []*Property
-  orders []string
-  conditions []Condition
-  limit, offset int64
-}
-
-func newSQLBuilder(model Model) *sqlBuilder {
-	return &sqlBuilder{
-		table: model.TableName(),
-	}
-}
-
-func (b *sqlBuilder) AddProperty(prop *Property) {
-	b.props = append(b.props, prop)
+	table         string
+	props         []*Property
+	orders        []string
+	conditions    []Condition
+	limit, offset int64
 }
 
 func (b *sqlBuilder) cols() []string {
@@ -60,10 +49,6 @@ func (b *sqlBuilder) SelectSQLCols(cols ...string) (string, []interface{}) {
 	return sql, values
 }
 
-func (b *sqlBuilder) Condition(cond Condition) {
-	b.conditions = append(b.conditions, cond)
-}
-
 func (b *sqlBuilder) UpdateSQL() (string, []interface{}) {
 	var values []interface{}
 
@@ -72,7 +57,7 @@ func (b *sqlBuilder) UpdateSQL() (string, []interface{}) {
 		updates = append(updates, fmt.Sprintf("%s = ?", prop.Name))
 		values = append(values, prop.Value)
 	}
-	
+
 	var conds []string
 	for _, cond := range b.conditions {
 		conds = append(conds, cond.SQL())
@@ -109,10 +94,4 @@ func (b *sqlBuilder) DeleteSQL() (string, []interface{}) {
 	sql := fmt.Sprintf(`DELETE FROM %s WHERE %s`, b.table, strings.Join(conds, " AND "))
 
 	return sql, values
-}
-
-func (b *sqlBuilder) Hydrate() {
-	for _, prop := range b.props {
-		prop.Value = reflect.ValueOf(prop.Pointer).Elem().Interface()
-	}
 }

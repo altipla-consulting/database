@@ -1,54 +1,50 @@
 package database
 
 import (
-  "database/sql"
-  "reflect"
+	"database/sql"
 )
 
 type Iterator struct {
-  rows  *sql.Rows
-  props []*Property
+	rows  *sql.Rows
+	props []*Property
 }
 
 func (it *Iterator) Close() {
-  it.rows.Close()
+	it.rows.Close()
 }
 
 func (it *Iterator) Next(model Model) error {
-  v := reflect.ValueOf(model).Elem()
+	modelProps := updatedProps(it.props, model)
 
-  if err := it.rows.Err(); err != nil {
-    return err
-  }
+	if err := it.rows.Err(); err != nil {
+		return err
+	}
 
-  if !it.rows.Next() {
-    if err := it.rows.Err(); err != nil {
-      return err
-    }
+	if !it.rows.Next() {
+		if err := it.rows.Err(); err != nil {
+			return err
+		}
 
-    it.Close()
+		it.Close()
 
-    return Done
-  }
+		return Done
+	}
 
-  ptrs := make([]interface{}, len(it.props))
-  for i, prop := range it.props {
-    ptrs[i] = v.FieldByName(prop.Field).Addr().Interface()
-  }
-  if err := it.rows.Scan(ptrs...); err != nil {
-    return err
-  }
+	ptrs := make([]interface{}, len(modelProps))
+	for i, prop := range modelProps {
+		ptrs[i] = prop.Pointer
+	}
+	if err := it.rows.Scan(ptrs...); err != nil {
+		return err
+	}
 
-  for i, prop := range it.props {
-    prop.Pointer = ptrs[i]
-    prop.Value = reflect.ValueOf(prop.Pointer).Elem().Interface()
-  }
+	modelProps = updatedProps(it.props, model)
 
-  if h, ok := model.(ModelTrackingAfterGetHooker); ok {
-    if err := h.ModelTrackingAfterGet(it.props); err != nil {
-      return err
-    }
-  }
+	if h, ok := model.(ModelTrackingAfterGetHooker); ok {
+		if err := h.ModelTrackingAfterGet(modelProps); err != nil {
+			return err
+		}
+	}
 
-  return nil
+	return nil
 }

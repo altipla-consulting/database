@@ -115,16 +115,6 @@ func extractModelProps(model Model) ([]*Property, error) {
 	return props, nil
 }
 
-func getPrimaryKeyField(props []*Property) string {
-	for _, prop := range props {
-		if prop.PrimaryKey {
-			return prop.Field
-		}
-	}
-
-	return ""
-}
-
 func isZero(value interface{}) bool {
 	switch v := value.(type) {
 	case string:
@@ -138,4 +128,22 @@ func isZero(value interface{}) bool {
 	}
 
 	return false
+}
+
+func updatedProps(props []*Property, model Model) []*Property {
+	v := reflect.ValueOf(model).Elem()
+
+	var result []*Property
+	for _, prop := range props {
+		result = append(result, &Property{
+			Name:       prop.Name,
+			Field:      prop.Field,
+			Value:      v.FieldByName(prop.Field).Interface(),
+			Pointer:    v.FieldByName(prop.Field).Addr().Interface(),
+			PrimaryKey: prop.PrimaryKey,
+			OmitEmpty:  prop.OmitEmpty,
+		})
+	}
+
+	return result
 }

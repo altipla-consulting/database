@@ -12,12 +12,12 @@ import (
 )
 
 type Collection struct {
-	sess *sql.DB
-	conditions []Condition
+	sess          *sql.DB
+	conditions    []Condition
 	orders        []string
 	offset, limit int64
-	model Model
-	props []*Property
+	model         Model
+	props         []*Property
 }
 
 func newCollection(db *Database, model Model) *Collection {
@@ -27,7 +27,7 @@ func newCollection(db *Database, model Model) *Collection {
 	}
 
 	c := &Collection{
-		sess: db.sess,
+		sess:  db.sess,
 		model: model,
 		props: props,
 	}
@@ -36,12 +36,16 @@ func newCollection(db *Database, model Model) *Collection {
 }
 
 func (c *Collection) Get(ctx context.Context, instance Model) error {
-	b := newSQLBuilder(instance)
-	for _, prop := range c.props {
-		b.AddProperty(prop)
+	modelProps := updatedProps(c.props, instance)
+	b := &sqlBuilder{
+		table:      c.model.TableName(),
+		conditions: c.conditions,
+		props:      modelProps,
+	}
 
+	for _, prop := range modelProps {
 		if prop.PrimaryKey {
-			b.Condition(&simpleCondition{prop.Name, prop.Value})
+			b.conditions = append(b.conditions, &simpleCondition{prop.Name, prop.Value})
 		}
 	}
 
@@ -51,7 +55,7 @@ func (c *Collection) Get(ctx context.Context, instance Model) error {
 	}
 
 	var pointers []interface{}
-	for _, prop := range c.props {
+	for _, prop := range modelProps {
 		pointers = append(pointers, prop.Pointer)
 	}
 	if err := db.sess.QueryRowContext(ctx, statement, values...).Scan(pointers...); err != nil {
@@ -62,10 +66,10 @@ func (c *Collection) Get(ctx context.Context, instance Model) error {
 		return err
 	}
 
-	b.Hydrate()
+	modelProps = updatedProps(c.props, instance)
 
 	if h, ok := instance.(ModelTrackingAfterGetHooker); ok {
-		if err := h.ModelTrackingAfterGet(c.props); err != nil {
+		if err := h.ModelTrackingAfterGet(modelProps); err != nil {
 			return err
 		}
 	}
@@ -74,14 +78,18 @@ func (c *Collection) Get(ctx context.Context, instance Model) error {
 }
 
 func (c *Collection) Put(ctx context.Context, instance Model) error {
-	b := newSQLBuilder(instance)
+	b := &sqlBuilder{
+		table: c.model.TableName(),
+	}
+	modelProps := updatedProps(c.props, instance)
 
 	var q string
 	var values []interface{}
 	if instance.IsInserted() {
-		for _, prop := range c.props {
+		b.conditions = append(b.conditions, c.conditions...)
+		for _, prop := range modelProps {
 			if prop.PrimaryKey {
-				b.Condition(&simpleCondition{prop.Name, prop.Value})
+				b.conditions = append(b.conditions, &simpleCondition{prop.Name, prop.Value})
 				continue
 			}
 
@@ -89,17 +97,17 @@ func (c *Collection) Put(ctx context.Context, instance Model) error {
 				continue
 			}
 
-			b.AddProperty(prop)
+			b.props = append(b.props, prop)
 		}
 
 		q, values = b.UpdateSQL()
 	} else {
-		for _, prop := range c.props {
+		for _, prop := range modelProps {
 			if prop.OmitEmpty && isZero(prop.Value) {
 				continue
 			}
 
-			b.AddProperty(prop)
+			b.props = append(b.props, prop)
 		}
 
 		q, values = b.InsertSQL()
@@ -114,7 +122,7 @@ func (c *Collection) Put(ctx context.Context, instance Model) error {
 	}
 
 	var pks int
-	for _, prop := range c.props {
+	for _, prop := range modelProps {
 		if prop.PrimaryKey {
 			pks++
 		}
@@ -125,12 +133,17 @@ func (c *Collection) Put(ctx context.Context, instance Model) error {
 			return fmt.Errorf("database: cannot get last inserted id: %s", err)
 		}
 
-		v := reflect.ValueOf(instance).Elem()
-		v.FieldByName(getPrimaryKeyField(c.props)).Set(reflect.ValueOf(id))
+		for _, prop := range modelProps {
+			if prop.PrimaryKey {
+				if _, ok := prop.Value.(int64); ok {
+					reflect.ValueOf(prop.Pointer).Elem().Set(reflect.ValueOf(id))
+				}
+			}
+		}
 	}
 
 	if h, ok := instance.(ModelTrackingAfterPutHooker); ok {
-		if err := h.ModelTrackingAfterPut(c.props); err != nil {
+		if err := h.ModelTrackingAfterPut(modelProps); err != nil {
 			return err
 		}
 	}
@@ -173,10 +186,17 @@ func (c *Collection) Order(column string) *Collection {
 }
 
 func (c *Collection) Delete(ctx context.Context, instance Model) error {
-	b := newSQLBuilder(instance)
-	for _, prop := range c.props {
+	b := &sqlBuilder{
+		table:      c.model.TableName(),
+		conditions: c.conditions,
+		limit:      1,
+		offset:     c.offset,
+	}
+	modelProps := updatedProps(c.props, instance)
+
+	for _, prop := range modelProps {
 		if prop.PrimaryKey {
-			b.Condition(&simpleCondition{prop.Name, prop.Value})
+			b.conditions = append(b.conditions, &simpleCondition{prop.Name, prop.Value})
 		}
 	}
 
@@ -190,7 +210,7 @@ func (c *Collection) Delete(ctx context.Context, instance Model) error {
 	}
 
 	if h, ok := instance.(ModelTrackingAfterDeleteHooker); ok {
-		if err := h.ModelTrackingAfterDelete(c.props); err != nil {
+		if err := h.ModelTrackingAfterDelete(modelProps); err != nil {
 			return err
 		}
 	}
@@ -199,7 +219,14 @@ func (c *Collection) Delete(ctx context.Context, instance Model) error {
 }
 
 func (c *Collection) Iterator(ctx context.Context) (*Iterator, error) {
-	b := newSQLBuilder(c.model)
+	b := &sqlBuilder{
+		table:      c.model.TableName(),
+		conditions: c.conditions,
+		props:      c.props,
+		limit:      c.limit,
+		offset:     c.offset,
+		orders:     c.orders,
+	}
 
 	sql, values := b.SelectSQL()
 	if isDebug() {
@@ -255,9 +282,11 @@ func (c *Collection) GetAll(ctx context.Context, models interface{}) error {
 	return nil
 }
 
-
-func (c *Collection) Count(ctx context.Context, model Model) (int64, error) {
-	b := newSQLBuilder(c.model)
+func (c *Collection) Count(ctx context.Context) (int64, error) {
+	b := &sqlBuilder{
+		table:      c.model.TableName(),
+		conditions: c.conditions,
+	}
 
 	sql, values := b.SelectSQLCols("COUNT(*)")
 	if isDebug() {

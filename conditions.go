@@ -2,8 +2,8 @@ package database
 
 import (
 	"fmt"
-	"strings"
 	"reflect"
+	"strings"
 )
 
 type Condition interface {

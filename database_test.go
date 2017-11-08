@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	db *Database
-	testings *Collection
+	db           *Database
+	testings     *Collection
 	testingsAuto *Collection
 )
 
