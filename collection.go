@@ -248,10 +248,8 @@ func (c *Collection) GetAll(ctx context.Context, models interface{}) error {
 	if v.Kind() != reflect.Ptr {
 		return fmt.Errorf("database: pass a pointer to a slice to GetAll")
 	}
-
 	v = v.Elem()
 	t = t.Elem()
-
 	if v.Kind() != reflect.Slice {
 		return fmt.Errorf("database: pass a slice to GetAll")
 	}
@@ -299,4 +297,29 @@ func (c *Collection) Count(ctx context.Context) (int64, error) {
 	}
 
 	return n, nil
+}
+
+func (c *Collection) GetMulti(ctx context.Context, keys interface{}, models interface{}) error {
+	v := reflect.ValueOf(models)
+	t := reflect.TypeOf(models)
+	keysv := reflect.ValueOf(models)
+
+	if v.Kind() != reflect.Ptr {
+		return fmt.Errorf("database: pass a pointer to a slice of models to GetAll")
+	}
+	v = v.Elem()
+	t = t.Elem()
+	if v.Kind() != reflect.Slice {
+		return fmt.Errorf("database: pass a slice to GetAll")
+	}
+
+	if keysv.Kind() != reflect.Slice {
+		return fmt.Errorf("database: pass a slice of keys to GetAll")
+	}
+	keysv = v.Elem()
+	if keysv.Kind() != reflect.Int64 && keysv.Kind() != reflect.String {
+		return fmt.Errorf("database: pass a slice of string/int64 keys to GetAll")
+	}
+
+	return nil
 }
