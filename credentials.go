@@ -7,7 +7,6 @@ import (
 type Credentials struct {
 	User, Password     string
 	Address, Database  string
-	Port               int
 	Charset, Collation string
 	Protocol           string
 }
@@ -15,9 +14,6 @@ type Credentials struct {
 func (c Credentials) String() string {
 	if c.Protocol == "" {
 		c.Protocol = "tcp"
-	}
-	if c.Port == 0 {
-		c.Port = 3306
 	}
 
 	var charset string
@@ -29,5 +25,5 @@ func (c Credentials) String() string {
 		collation = fmt.Sprintf("&collation=%s", c.Collation)
 	}
 
-	return fmt.Sprintf("%s:%s@%s(%s:%d)/%s?parseTime=true%s%s", c.User, c.Password, c.Protocol, c.Address, c.Port, c.Database, charset, collation)
+	return fmt.Sprintf("%s:%s@%s(%s)/%s?parseTime=true%s%s", c.User, c.Password, c.Protocol, c.Address, c.Database, charset, collation)
 }
