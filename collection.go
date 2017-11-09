@@ -34,6 +34,18 @@ func newCollection(db *Database, model Model) *Collection {
 	return c
 }
 
+func (c *Collection) Clone() *Collection {
+	return &Collection{
+		sess:       c.sess,
+		conditions: c.conditions,
+		orders:     c.orders,
+		offset:     c.offset,
+		limit:      c.limit,
+		model:      c.model,
+		props:      c.props,
+	}
+}
+
 func (c *Collection) Get(instance Model) error {
 	modelProps := updatedProps(c.props, instance)
 	b := &sqlBuilder{
