@@ -501,3 +501,11 @@ func TestGetMultiError(t *testing.T) {
 	require.Nil(t, models[0])
 	require.Equal(t, models[1].Name, "foo")
 }
+
+func TestGetMultiEmpty(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	var models []*testingModel
+	require.Nil(t, testings.GetMulti([]string{}, &models))
+}

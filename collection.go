@@ -343,6 +343,9 @@ func (c *Collection) GetMulti(keys interface{}, models interface{}) error {
 	if keyst.Kind() != reflect.Int64 && keyst.Kind() != reflect.String {
 		return fmt.Errorf("database: pass a slice of string/int64 keys to GetAll")
 	}
+	if keysv.Len() == 0 {
+		return nil
+	}
 
 	var pk *Property
 	for _, prop := range c.props {
