@@ -509,3 +509,35 @@ func TestGetMultiEmpty(t *testing.T) {
 	var models []*testingModel
 	require.Nil(t, testings.GetMulti([]string{}, &models))
 }
+
+func TestFirst(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	require.Nil(t, testDB.Exec(`INSERT INTO testing(code, name) VALUES ("foo", "foov"), ("bar", "barv")`))
+
+	m := new(testingModel)
+	require.Nil(t, testings.Filter("code", "bar").First(m))
+
+	require.Equal(t, "barv", m.Name)
+}
+
+func TestFirstNotFound(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	m := new(testingModel)
+	require.EqualError(t, testings.Filter("code", "foo").First(m), ErrNoSuchEntity.Error())
+}
+
+func TestFirstNotTouchCols(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	m := &testingModel{
+		Name: "untouched",
+	}
+	require.EqualError(t, testings.Filter("code", "foo").First(m), ErrNoSuchEntity.Error())
+
+	require.Equal(t, "untouched", m.Name)
+}

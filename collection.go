@@ -302,6 +302,45 @@ func (c *Collection) GetAll(models interface{}) error {
 	return nil
 }
 
+func (c *Collection) First(instance Model) error {
+	modelProps := updatedProps(c.props, instance)
+	b := &sqlBuilder{
+		table:      c.model.TableName(),
+		conditions: c.conditions,
+		props:      modelProps,
+		limit:      c.limit,
+		offset:     c.offset,
+		orders:     c.orders,
+	}
+
+	statement, values := b.SelectSQL()
+	if isDebug() {
+		log.Println("database [First]:", statement)
+	}
+
+	var pointers []interface{}
+	for _, prop := range modelProps {
+		pointers = append(pointers, prop.Pointer)
+	}
+	if err := c.sess.QueryRow(statement, values...).Scan(pointers...); err != nil {
+		if err == sql.ErrNoRows {
+			return ErrNoSuchEntity
+		}
+
+		return err
+	}
+
+	modelProps = updatedProps(c.props, instance)
+
+	if h, ok := instance.(ModelTrackingAfterGetHooker); ok {
+		if err := h.ModelTrackingAfterGet(modelProps); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *Collection) Count() (int64, error) {
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
