@@ -26,17 +26,17 @@ func (tracking *ModelTracking) IsInserted() bool {
 	return tracking.inserted
 }
 
-func (tracking *ModelTracking) ModelTrackingAfterGet(props []*Property) error {
+func (tracking *ModelTracking) AfterGet(props []*Property) error {
 	tracking.inserted = true
 	return nil
 }
 
-func (tracking *ModelTracking) ModelTrackingAfterPut(props []*Property) error {
+func (tracking *ModelTracking) AfterPut(props []*Property) error {
 	tracking.inserted = true
 	return nil
 }
 
-func (tracking *ModelTracking) ModelTrackingAfterDelete(props []*Property) error {
+func (tracking *ModelTracking) AfterDelete(props []*Property) error {
 	tracking.inserted = false
 	return nil
 }

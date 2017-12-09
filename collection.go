@@ -79,7 +79,7 @@ func (c *Collection) Get(instance Model) error {
 
 	modelProps = updatedProps(c.props, instance)
 
-	if err := instance.Tracking().ModelTrackingAfterGet(modelProps); err != nil {
+	if err := instance.Tracking().AfterGet(modelProps); err != nil {
 		return err
 	}
 
@@ -157,7 +157,7 @@ func (c *Collection) Put(instance Model) error {
 		}
 	}
 
-	if err := instance.Tracking().ModelTrackingAfterPut(modelProps); err != nil {
+	if err := instance.Tracking().AfterPut(modelProps); err != nil {
 		return err
 	}
 
@@ -222,7 +222,7 @@ func (c *Collection) Delete(instance Model) error {
 		return err
 	}
 
-	if err := instance.Tracking().ModelTrackingAfterDelete(modelProps); err != nil {
+	if err := instance.Tracking().AfterDelete(modelProps); err != nil {
 		return err
 	}
 
@@ -326,7 +326,7 @@ func (c *Collection) First(instance Model) error {
 
 	modelProps = updatedProps(c.props, instance)
 
-	if err := instance.Tracking().ModelTrackingAfterGet(modelProps); err != nil {
+	if err := instance.Tracking().AfterGet(modelProps); err != nil {
 		return err
 	}
 
