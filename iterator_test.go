@@ -22,5 +22,8 @@ func TestIteratorNextCallHooks(t *testing.T) {
 	require.Len(t, models, 2)
 
 	require.True(t, models[0].IsInserted())
+	require.EqualValues(t, 0, models[0].Tracking().StoredRevision())
+
 	require.True(t, models[1].IsInserted())
+	require.EqualValues(t, 0, models[1].Tracking().StoredRevision())
 }

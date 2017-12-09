@@ -10,37 +10,55 @@ var modelTrackingType = reflect.TypeOf(ModelTracking{})
 
 type Model interface {
 	TableName() string
-	IsInserted() bool
 	Tracking() *ModelTracking
+
+	// TODO(ernesto): Move all calls to ModelTracking directly.
+	IsInserted() bool
 }
 
 type ModelTracking struct {
+	Revision int64
+
 	inserted bool
 }
 
+// Tracking returns the tracking instance of a model.
 func (tracking *ModelTracking) Tracking() *ModelTracking {
 	return tracking
 }
 
+// StoredRevision returns the stored revision when the model was retrieved.
+// It can be -1 signalling that the model is a new one.
+func (tracking *ModelTracking) StoredRevision() int64 {
+	return tracking.Revision - 1
+}
+
+// IsInserted returns true if the model has been previously retrieved from the database.
 func (tracking *ModelTracking) IsInserted() bool {
 	return tracking.inserted
 }
 
+// AfterGet is a hook called after a model is retrieved from the database.
 func (tracking *ModelTracking) AfterGet(props []*Property) error {
 	tracking.inserted = true
+	tracking.Revision++
 	return nil
 }
 
+// AfterPut is a hook called after a model is updated or inserted in the database.
 func (tracking *ModelTracking) AfterPut(props []*Property) error {
 	tracking.inserted = true
+	tracking.Revision++
 	return nil
 }
 
+// AfterDelete is a hook called after a model is deleted from the database.
 func (tracking *ModelTracking) AfterDelete(props []*Property) error {
 	tracking.inserted = false
 	return nil
 }
 
+// Property represents a field of the model mapped to a database column.
 type Property struct {
 	// Name of the column. Already escaped.
 	Name string
@@ -71,6 +89,13 @@ func extractModelProps(model Model) ([]*Property, error) {
 		ft := t.Field(i)
 
 		if ft.Type == modelTrackingType {
+			props = append(props, &Property{
+				Name:    "`revision`",
+				Field:   "Revision",
+				Value:   fv.FieldByName("Revision").Interface(),
+				Pointer: fv.FieldByName("Revision").Addr().Interface(),
+			})
+
 			continue
 		}
 

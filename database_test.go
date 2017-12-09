@@ -53,6 +53,7 @@ func initDatabase(t *testing.T) {
     CREATE TABLE testing (
       code VARCHAR(191),
       name VARCHAR(191),
+      revision INT(11) NOT NULL,
 
       PRIMARY KEY(code)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
@@ -64,6 +65,7 @@ func initDatabase(t *testing.T) {
     CREATE TABLE testing_auto (
       id INT(11) NOT NULL AUTO_INCREMENT,
       name VARCHAR(191),
+      revision INT(11) NOT NULL,
 
       PRIMARY KEY(id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

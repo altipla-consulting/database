@@ -10,7 +10,7 @@ func TestGet(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
 
-	require.Nil(t, testDB.Exec(`INSERT INTO testing(code, name) VALUES ("foo", "foov"), ("bar", "barv")`))
+	require.Nil(t, testDB.Exec(`INSERT INTO testing(code, name, revision) VALUES ("foo", "foov", 1), ("bar", "barv", 2)`))
 
 	m := &testingModel{
 		Code: "bar",
@@ -18,6 +18,7 @@ func TestGet(t *testing.T) {
 	require.Nil(t, testings.Get(m))
 
 	require.Equal(t, "barv", m.Name)
+	require.EqualValues(t, 2, m.Tracking().StoredRevision())
 }
 
 func TestGetNotFound(t *testing.T) {
@@ -59,6 +60,7 @@ func TestInsert(t *testing.T) {
 	}
 	require.Nil(t, testings.Get(other))
 	require.Equal(t, "bar", other.Name)
+	require.EqualValues(t, 0, other.Tracking().StoredRevision())
 }
 
 func TestInsertAuto(t *testing.T) {
@@ -109,6 +111,7 @@ func TestUpdate(t *testing.T) {
 	}
 	require.Nil(t, testings.Get(other))
 	require.Equal(t, "qux", other.Name)
+	require.EqualValues(t, 1, other.Tracking().StoredRevision())
 }
 
 func TestInsertAndUpdate(t *testing.T) {
@@ -129,6 +132,7 @@ func TestInsertAndUpdate(t *testing.T) {
 	}
 	require.Nil(t, testings.Get(other))
 	require.Equal(t, "qux", other.Name)
+	require.EqualValues(t, 1, other.Tracking().StoredRevision())
 }
 
 func TestDelete(t *testing.T) {
@@ -185,8 +189,11 @@ func TestGetAll(t *testing.T) {
 
 	require.Equal(t, "bar", models[0].Code)
 	require.Equal(t, "bar name", models[0].Name)
+	require.EqualValues(t, 0, models[0].Tracking().StoredRevision())
+
 	require.Equal(t, "foo", models[1].Code)
 	require.Equal(t, "foo name", models[1].Name)
+	require.EqualValues(t, 0, models[1].Tracking().StoredRevision())
 }
 
 func TestGetAllFiltering(t *testing.T) {
@@ -447,7 +454,10 @@ func TestGetMultiStrings(t *testing.T) {
 	require.Len(t, models, 2)
 
 	require.Equal(t, models[0].Code, "foo")
+	require.EqualValues(t, 0, models[0].Tracking().StoredRevision())
+
 	require.Equal(t, models[1].Code, "bar")
+	require.EqualValues(t, 0, models[1].Tracking().StoredRevision())
 }
 
 func TestGetMultiIntegers(t *testing.T) {
@@ -514,12 +524,13 @@ func TestFirst(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
 
-	require.Nil(t, testDB.Exec(`INSERT INTO testing(code, name) VALUES ("foo", "foov"), ("bar", "barv")`))
+	require.Nil(t, testDB.Exec(`INSERT INTO testing(code, name, revision) VALUES ("foo", "foov", 1), ("bar", "barv", 2)`))
 
 	m := new(testingModel)
 	require.Nil(t, testings.Filter("code", "bar").First(m))
 
 	require.Equal(t, "barv", m.Name)
+	require.EqualValues(t, 2, m.Tracking().StoredRevision())
 }
 
 func TestFirstNotFound(t *testing.T) {
