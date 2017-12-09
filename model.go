@@ -11,10 +11,15 @@ var modelTrackingType = reflect.TypeOf(ModelTracking{})
 type Model interface {
 	TableName() string
 	IsInserted() bool
+	Tracking() *ModelTracking
 }
 
 type ModelTracking struct {
 	inserted bool
+}
+
+func (tracking *ModelTracking) Tracking() *ModelTracking {
+	return tracking
 }
 
 func (tracking *ModelTracking) IsInserted() bool {

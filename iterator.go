@@ -40,10 +40,8 @@ func (it *Iterator) Next(model Model) error {
 
 	modelProps = updatedProps(it.props, model)
 
-	if h, ok := model.(ModelTrackingAfterGetHooker); ok {
-		if err := h.ModelTrackingAfterGet(modelProps); err != nil {
-			return err
-		}
+	if err := model.Tracking().ModelTrackingAfterGet(modelProps); err != nil {
+		return err
 	}
 
 	return nil

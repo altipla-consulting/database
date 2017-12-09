@@ -79,10 +79,8 @@ func (c *Collection) Get(instance Model) error {
 
 	modelProps = updatedProps(c.props, instance)
 
-	if h, ok := instance.(ModelTrackingAfterGetHooker); ok {
-		if err := h.ModelTrackingAfterGet(modelProps); err != nil {
-			return err
-		}
+	if err := instance.Tracking().ModelTrackingAfterGet(modelProps); err != nil {
+		return err
 	}
 
 	return nil
@@ -159,10 +157,8 @@ func (c *Collection) Put(instance Model) error {
 		}
 	}
 
-	if h, ok := instance.(ModelTrackingAfterPutHooker); ok {
-		if err := h.ModelTrackingAfterPut(modelProps); err != nil {
-			return err
-		}
+	if err := instance.Tracking().ModelTrackingAfterPut(modelProps); err != nil {
+		return err
 	}
 
 	return nil
@@ -226,10 +222,8 @@ func (c *Collection) Delete(instance Model) error {
 		return err
 	}
 
-	if h, ok := instance.(ModelTrackingAfterDeleteHooker); ok {
-		if err := h.ModelTrackingAfterDelete(modelProps); err != nil {
-			return err
-		}
+	if err := instance.Tracking().ModelTrackingAfterDelete(modelProps); err != nil {
+		return err
 	}
 
 	return nil
@@ -332,10 +326,8 @@ func (c *Collection) First(instance Model) error {
 
 	modelProps = updatedProps(c.props, instance)
 
-	if h, ok := instance.(ModelTrackingAfterGetHooker); ok {
-		if err := h.ModelTrackingAfterGet(modelProps); err != nil {
-			return err
-		}
+	if err := instance.Tracking().ModelTrackingAfterGet(modelProps); err != nil {
+		return err
 	}
 
 	return nil
