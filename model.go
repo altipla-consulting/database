@@ -11,9 +11,6 @@ var modelTrackingType = reflect.TypeOf(ModelTracking{})
 type Model interface {
 	TableName() string
 	Tracking() *ModelTracking
-
-	// TODO(ernesto): Move all calls to ModelTracking directly.
-	IsInserted() bool
 }
 
 type ModelTracking struct {

@@ -100,7 +100,7 @@ func (c *Collection) Put(instance Model) error {
 
 	var q string
 	var values []interface{}
-	if instance.IsInserted() {
+	if instance.Tracking().IsInserted() {
 		b.conditions = append(b.conditions, c.conditions...)
 		for _, prop := range modelProps {
 			if prop.PrimaryKey {
@@ -142,7 +142,7 @@ func (c *Collection) Put(instance Model) error {
 			pks++
 		}
 	}
-	if pks == 1 && !instance.IsInserted() {
+	if pks == 1 && !instance.Tracking().IsInserted() {
 		id, err := result.LastInsertId()
 		if err != nil {
 			return fmt.Errorf("database: cannot get last inserted id: %s", err)
