@@ -13,6 +13,11 @@ var (
 	// Done is returned from the Next() method of an iterator when all results
 	// have been read.
 	Done = errors.New("query has no more results")
+
+	// ErrConcurrentTransaction is returned when trying to update a model that has been
+	// updated in the background by other process. This errors will prevent you from
+	// potentially overwriting those changes.
+	ErrConcurrentTransaction = errors.New("database: concurrent transaction")
 )
 
 type MultiError []error

@@ -102,6 +102,8 @@ func (c *Collection) Put(instance Model) error {
 	var values []interface{}
 	if instance.Tracking().IsInserted() {
 		b.conditions = append(b.conditions, c.conditions...)
+		b.conditions = append(b.conditions, &simpleCondition{"revision", instance.Tracking().StoredRevision()})
+
 		for _, prop := range modelProps {
 			if prop.PrimaryKey {
 				b.conditions = append(b.conditions, &simpleCondition{prop.Name, prop.Value})
@@ -155,6 +157,14 @@ func (c *Collection) Put(instance Model) error {
 				}
 			}
 		}
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("database: cannot get rows affected: %s", err)
+	}
+	if rows == 0 {
+		return ErrConcurrentTransaction
 	}
 
 	if err := instance.Tracking().AfterPut(modelProps); err != nil {

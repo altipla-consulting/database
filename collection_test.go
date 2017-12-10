@@ -114,6 +114,33 @@ func TestUpdate(t *testing.T) {
 	require.EqualValues(t, 1, other.Tracking().StoredRevision())
 }
 
+func TestUpdateConcurrentTransaction(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	m := &testingModel{
+		Code: "foo",
+		Name: "bar",
+	}
+	require.Nil(t, testings.Put(m))
+
+	other := &testingModel{
+		Code: "foo",
+	}
+	require.Nil(t, testings.Get(other))
+	other.Name = "baz"
+	require.Nil(t, testings.Put(other))
+
+	m.Name = "qux"
+	require.EqualError(t, testings.Put(m), ErrConcurrentTransaction.Error())
+
+	check := &testingModel{
+		Code: "foo",
+	}
+	require.Nil(t, testings.Get(check))
+	require.Equal(t, "baz", check.Name)
+}
+
 func TestInsertAndUpdate(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
