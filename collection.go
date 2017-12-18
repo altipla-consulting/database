@@ -463,3 +463,20 @@ func (c *Collection) GetMulti(keys interface{}, models interface{}) error {
 	}
 	return nil
 }
+
+func (c *Collection) Truncate() error {
+	b := &sqlBuilder{
+		table: c.model.TableName(),
+	}
+
+	statement := b.TruncateSQL()
+	if isDebug() {
+		log.Println("database [Truncate]:", statement)
+	}
+
+	if _, err := c.sess.Exec(statement); err != nil {
+		return err
+	}
+
+	return nil
+}
