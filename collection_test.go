@@ -579,3 +579,30 @@ func TestFirstNotTouchCols(t *testing.T) {
 
 	require.Equal(t, "untouched", m.Name)
 }
+
+func TestTruncate(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	m := &testingModel{
+		Code: "foo",
+		Name: "bar",
+	}
+	require.Nil(t, testings.Put(m))
+
+	m = &testingModel{
+		Code: "baz",
+		Name: "qux",
+	}
+	require.Nil(t, testings.Put(m))
+
+	n, err := testings.Count()
+	require.Nil(t, err)
+	require.EqualValues(t, n, 2)
+
+	require.Nil(t, testings.Truncate())
+
+	n, err = testings.Count()
+	require.Nil(t, err)
+	require.EqualValues(t, n, 0)
+}

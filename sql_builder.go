@@ -95,3 +95,7 @@ func (b *sqlBuilder) DeleteSQL() (string, []interface{}) {
 
 	return sql, values
 }
+
+func (b *sqlBuilder) TruncateSQL() string {
+	return fmt.Sprintf(`TRUNCATE TABLE %s`, b.table)
+}
