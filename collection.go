@@ -478,5 +478,14 @@ func (c *Collection) Truncate() error {
 		return err
 	}
 
+	statement = b.ResetAutoIncrementSQL()
+	if isDebug() {
+		log.Println("database [Truncate]:", statement)
+	}
+
+	if _, err := c.sess.Exec(statement); err != nil {
+		return err
+	}
+
 	return nil
 }

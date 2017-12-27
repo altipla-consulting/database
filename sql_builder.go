@@ -99,3 +99,7 @@ func (b *sqlBuilder) DeleteSQL() (string, []interface{}) {
 func (b *sqlBuilder) TruncateSQL() string {
 	return fmt.Sprintf(`DELETE FROM %s`, b.table)
 }
+
+func (b *sqlBuilder) ResetAutoIncrementSQL() string {
+	return fmt.Sprintf(`ALTER TABLE %s AUTO_INCREMENT = 0`, b.table)
+}
