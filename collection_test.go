@@ -606,3 +606,32 @@ func TestTruncate(t *testing.T) {
 	require.Nil(t, err)
 	require.EqualValues(t, n, 0)
 }
+
+func TestTruncateResetAutoIncrement(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	m := &testingAutoModel{
+		Name: "bar",
+	}
+	require.Nil(t, testingsAuto.Put(m))
+
+	m = &testingAutoModel{
+		Name: "qux",
+	}
+	require.Nil(t, testingsAuto.Put(m))
+
+	require.Nil(t, testingsAuto.Truncate())
+
+	m = &testingAutoModel{
+		Name: "foo",
+	}
+	require.Nil(t, testingsAuto.Put(m))
+
+	var models []*testingAutoModel
+	require.Nil(t, testingsAuto.GetAll(&models))
+
+	require.Len(t, models, 1)
+
+	require.Equal(t, models[0].ID, int64(1))
+}
