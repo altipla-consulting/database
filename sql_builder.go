@@ -101,5 +101,5 @@ func (b *sqlBuilder) TruncateSQL() string {
 }
 
 func (b *sqlBuilder) ResetAutoIncrementSQL() string {
-	return fmt.Sprintf(`ALTER TABLE %s AUTO_INCREMENT = 0`, b.table)
+	return fmt.Sprintf(`ALTER TABLE %s AUTO_INCREMENT = 1`, b.table)
 }
