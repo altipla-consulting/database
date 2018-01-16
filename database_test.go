@@ -7,9 +7,10 @@ import (
 )
 
 var (
-	testDB       *Database
-	testings     *Collection
-	testingsAuto *Collection
+	testDB         *Database
+	testings       *Collection
+	testingsAuto   *Collection
+	testingsHooker *Collection
 )
 
 type testingModel struct {
@@ -34,6 +35,23 @@ type testingAutoModel struct {
 
 func (model *testingAutoModel) TableName() string {
 	return "testing_auto"
+}
+
+type testingHooker struct {
+	ModelTracking
+
+	Code     string `db:"code,pk"`
+	Executed bool   `db:"executed"`
+}
+
+func (model *testingHooker) TableName() string {
+	return "testing_hooker"
+}
+
+func (model *testingHooker) OnAfterPutHook() error {
+	model.Executed = true
+
+	return nil
 }
 
 func initDatabase(t *testing.T) {
@@ -72,8 +90,21 @@ func initDatabase(t *testing.T) {
   `)
 	require.Nil(t, err)
 
+	require.Nil(t, testDB.Exec(`DROP TABLE IF EXISTS testing_hooker`))
+	err = testDB.Exec(`
+    CREATE TABLE testing_hooker (
+      code VARCHAR(191),
+      executed BOOLEAN,
+      revision INT(11) NOT NULL,
+
+      PRIMARY KEY(code)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+  `)
+	require.Nil(t, err)
+
 	testings = testDB.Collection(new(testingModel))
 	testingsAuto = testDB.Collection(new(testingAutoModel))
+	testingsHooker = testDB.Collection(new(testingHooker))
 }
 
 func closeDatabase() {

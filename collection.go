@@ -171,6 +171,12 @@ func (c *Collection) Put(instance Model) error {
 		return err
 	}
 
+	if h, ok := instance.(OnAfterPutHooker); ok {
+		if err := h.OnAfterPutHook(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

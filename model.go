@@ -8,6 +8,10 @@ import (
 
 var modelTrackingType = reflect.TypeOf(ModelTracking{})
 
+type OnAfterPutHooker interface {
+	OnAfterPutHook() error
+}
+
 type Model interface {
 	TableName() string
 	Tracking() *ModelTracking
