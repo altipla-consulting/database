@@ -42,10 +42,17 @@ type testingHooker struct {
 
 	Code     string `db:"code,pk"`
 	Executed bool   `db:"executed"`
+	Changed  string `db:"changed"`
 }
 
 func (model *testingHooker) TableName() string {
 	return "testing_hooker"
+}
+
+func (model *testingHooker) OnBeforePutHook() error {
+	model.Changed = "changed"
+
+	return nil
 }
 
 func (model *testingHooker) OnAfterPutHook() error {
@@ -95,6 +102,7 @@ func initDatabase(t *testing.T) {
     CREATE TABLE testing_hooker (
       code VARCHAR(191),
       executed BOOLEAN,
+      changed VARCHAR(191),
       revision INT(11) NOT NULL,
 
       PRIMARY KEY(code)

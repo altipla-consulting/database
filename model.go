@@ -12,6 +12,10 @@ type OnAfterPutHooker interface {
 	OnAfterPutHook() error
 }
 
+type OnBeforePutHooker interface {
+	OnBeforePutHook() error
+}
+
 type Model interface {
 	TableName() string
 	Tracking() *ModelTracking

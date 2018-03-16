@@ -93,6 +93,12 @@ func (c *Collection) Put(instance Model) error {
 		return fmt.Errorf("database: expected instance of %s and got a instance of %s", modelt, instancet)
 	}
 
+	if h, ok := instance.(OnBeforePutHooker); ok {
+		if err := h.OnBeforePutHook(); err != nil {
+			return err
+		}
+	}
+
 	b := &sqlBuilder{
 		table: c.model.TableName(),
 	}

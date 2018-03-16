@@ -63,7 +63,7 @@ func TestInsert(t *testing.T) {
 	require.EqualValues(t, 0, other.Tracking().StoredRevision())
 }
 
-func TestInsertOnPutHooker(t *testing.T) {
+func TestInsertOnBeforePutHooker(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
 
@@ -71,13 +71,31 @@ func TestInsertOnPutHooker(t *testing.T) {
 		Code: "foo",
 	}
 
-	require.Nil(t, testingsHooker.Put(m))
+	require.NoError(t, testingsHooker.Put(m))
 
 	other := &testingHooker{
 		Code: "foo",
 	}
 
-	require.Nil(t, testingsHooker.Get(other))
+	require.NoError(t, testingsHooker.Get(other))
+	require.Equal(t, other.Changed, "changed")
+}
+
+func TestInsertOnAfterPutHooker(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	m := &testingHooker{
+		Code: "foo",
+	}
+
+	require.NoError(t, testingsHooker.Put(m))
+
+	other := &testingHooker{
+		Code: "foo",
+	}
+
+	require.NoError(t, testingsHooker.Get(other))
 	require.True(t, m.Executed)
 	require.False(t, other.Executed)
 }
