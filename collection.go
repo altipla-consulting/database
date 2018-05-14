@@ -501,3 +501,9 @@ func (c *Collection) Truncate() error {
 
 	return nil
 }
+
+func EscapeLike(str string) string {
+	str = strings.Replace(str, "%", `\%`, -1)
+	str = strings.Replace(str, "_", `\_`, -1)
+	return str
+}
