@@ -44,3 +44,7 @@ func (db *Database) Exec(query string, params ...interface{}) error {
 	_, err := db.sess.Exec(query, params...)
 	return err
 }
+
+func (db *Database) QueryRow(query string, params ...interface{}) *sql.Row {
+	return db.sess.QueryRow(query, params...)
+}

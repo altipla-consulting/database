@@ -66,7 +66,7 @@ func initDatabase(t *testing.T) {
 	testDB, err = Open(Credentials{
 		User:      "dev-user",
 		Password:  "dev-password",
-		Address:   "localhost",
+		Address:   "localhost:3306",
 		Database:  "test",
 		Charset:   "utf8mb4",
 		Collation: "utf8mb4_bin",
@@ -117,4 +117,20 @@ func initDatabase(t *testing.T) {
 
 func closeDatabase() {
 	testDB.Close()
+}
+
+func TestQueryRow(t *testing.T) {
+	initDatabase(t)
+
+	model := &testingModel{
+		Code: "Test",
+		Name: "test",
+	}
+	require.Nil(t, testings.Put(model))
+
+	row := testDB.QueryRow(`SELECT name FROM testing`)
+
+	var name string
+	require.NoError(t, row.Scan(&name))
+	require.Equal(t, "test", name)
 }
