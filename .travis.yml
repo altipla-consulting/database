@@ -1,0 +1,12 @@
+
+language: go
+
+go:
+- 1.10.x
+
+before_install:
+- make deps
+- docker-compose --version
+
+script:
+- make test
