@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// Credentials configures the authentication and address of the remote MySQL database.
 type Credentials struct {
 	User, Password     string
 	Address, Database  string
@@ -11,6 +12,8 @@ type Credentials struct {
 	Protocol           string
 }
 
+// String returns the credentials with the exact format the Go MySQL driver needs
+// to connect to it.
 func (c Credentials) String() string {
 	if c.Protocol == "" {
 		c.Protocol = "tcp"

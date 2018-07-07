@@ -8,19 +8,34 @@ import (
 
 var modelTrackingType = reflect.TypeOf(ModelTracking{})
 
+// OnAfterPutHooker can be implemented by any model to receive a call every time
+// the model is saved to the database.
 type OnAfterPutHooker interface {
 	OnAfterPutHook() error
 }
 
+// OnBeforePutHooker can be implemented by any model to receive a call every time
+// the model is retrieved from the database. When multiple models are retrieved
+// (GetMulti, GetAll, ...) every single model will receive the hook individually.
 type OnBeforePutHooker interface {
 	OnBeforePutHook() error
 }
 
+// Model should be implemented by any model that want to be serializable to SQL.
 type Model interface {
+	// TableName returns the name of the table that should store this model. We
+	// recommend a simple return with the string, though it can be dynamic too
+	// if you really know what you are doing.
 	TableName() string
+
+	// Tracking returns the Tracking side helper that stores state about the model.
 	Tracking() *ModelTracking
 }
 
+// ModelTracking is a struct you can inherit to implement the model interface. Insert
+// directly inline in your struct without pointers or names and it will provide
+// you with all the functionality needed to make the struct a Model, except for
+// the TableName() function that you should implement yourself.
 type ModelTracking struct {
 	Revision int64
 

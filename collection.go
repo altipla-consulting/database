@@ -35,6 +35,8 @@ func newCollection(db *Database, model Model) *Collection {
 	return c
 }
 
+// Clone returns a new collection with the same filters and configuration of
+// the original one.
 func (c *Collection) Clone() *Collection {
 	return &Collection{
 		sess:       c.sess,
@@ -85,6 +87,8 @@ func (c *Collection) Get(instance Model) error {
 	return instance.Tracking().AfterGet(modelProps)
 }
 
+// Put stores a new item of the collection. Any filter or limit of the
+// collection won't be applied.
 func (c *Collection) Put(instance Model) error {
 	modelt := reflect.TypeOf(c.model)
 	instancet := reflect.TypeOf(instance)
@@ -185,10 +189,20 @@ func (c *Collection) Put(instance Model) error {
 	return nil
 }
 
+// Filter applies a new simple filter to the collection. There are multiple types
+// of simple filters depending on the SQL you pass to it:
+//
+//   Filter("foo", "bar")
+//   Filter("foo >", 3)
+//   Filter("foo LIKE", "%bar%")
+//   Filter("DATE_DIFF(?, mycolumn) > 30", time.Now())
 func (c *Collection) Filter(sql string, value interface{}) *Collection {
 	return c.FilterCond(&simpleCondition{sql, value})
 }
 
+// FilterCond applies a generic condition to the collection. We have some helpers
+// in this library to build conditions; and other libraries (like github.com/altipla-consulting/geo)
+// can implement their own conditions too.
 func (c *Collection) FilterCond(condition Condition) *Collection {
 	c.conditions = append(c.conditions, condition)
 	return c
@@ -207,6 +221,9 @@ func (c *Collection) Limit(limit int64) *Collection {
 	return c
 }
 
+// Order the collection of items. You can pass "column" for ascendent order or "-column"
+// for descendent order. If you want to order by mutliple columns call Order multiple
+// times for each column, the will be joined.
 func (c *Collection) Order(column string) *Collection {
 	if strings.Contains(column, " ") {
 		panic("call Order multiple times, do not pass multiple columns")
@@ -222,6 +239,9 @@ func (c *Collection) Order(column string) *Collection {
 	return c
 }
 
+// Delete removes a model from a collection. It uses the filters and the model
+// primary key to find the row to remove, so it can return an error even if the
+// PK exists when the filters do not match.
 func (c *Collection) Delete(instance Model) error {
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
@@ -249,6 +269,8 @@ func (c *Collection) Delete(instance Model) error {
 	return instance.Tracking().AfterDelete(modelProps)
 }
 
+// Iterator returns a new iterator that can be used to extract models one by one in a loop.
+// You should close the Iterator after you are done with it.
 func (c *Collection) Iterator() (*Iterator, error) {
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
@@ -272,6 +294,9 @@ func (c *Collection) Iterator() (*Iterator, error) {
 	return &Iterator{rows, c.props}, nil
 }
 
+// GetAll receives a pointer to an empty slice of models and retrieves all the
+// models that match the filters of the collection. Take care to avoid fetching large
+// collections of models or you will run out of memory.
 func (c *Collection) GetAll(models interface{}) error {
 	v := reflect.ValueOf(models)
 	t := reflect.TypeOf(models)
@@ -301,7 +326,7 @@ func (c *Collection) GetAll(models interface{}) error {
 	for {
 		model := reflect.New(t.Elem().Elem())
 		if err := it.Next(model.Interface().(Model)); err != nil {
-			if err == Done {
+			if err == ErrDone {
 				break
 			}
 
