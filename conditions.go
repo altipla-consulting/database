@@ -6,8 +6,13 @@ import (
 	"strings"
 )
 
+// Condition should be implemented by any generic SQL condition we can apply to collections.
 type Condition interface {
+	// SQL returns the portion of the code that will be merged inside the WHERE
+	// query. It can have placeholders with "?" to fill them apart.
 	SQL() string
+
+	// Values returns the list of placeholders values we should fill.
 	Values() []interface{}
 }
 
