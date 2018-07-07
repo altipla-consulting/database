@@ -6,10 +6,11 @@ import (
 	"log"
 	"reflect"
 	"strings"
-
-	_ "github.com/go-sql-driver/mysql"
 )
 
+// Collections represents a table. You can apply further filters and operations
+// to the collection and then query it with one of our read methods (Get, GetAll, ...)
+// or use it to store new items (Put).
 type Collection struct {
 	sess          *sql.DB
 	conditions    []Condition
@@ -46,6 +47,8 @@ func (c *Collection) Clone() *Collection {
 	}
 }
 
+// Get retrieves the model matching the collection filters and the model primary key.
+// If no model is found ErrNoSuchEntity will be returned and the model won't be touched.
 func (c *Collection) Get(instance Model) error {
 	modelProps := updatedProps(c.props, instance)
 	b := &sqlBuilder{
@@ -79,11 +82,7 @@ func (c *Collection) Get(instance Model) error {
 
 	modelProps = updatedProps(c.props, instance)
 
-	if err := instance.Tracking().AfterGet(modelProps); err != nil {
-		return err
-	}
-
-	return nil
+	return instance.Tracking().AfterGet(modelProps)
 }
 
 func (c *Collection) Put(instance Model) error {
@@ -195,11 +194,14 @@ func (c *Collection) FilterCond(condition Condition) *Collection {
 	return c
 }
 
+// Offset moves the initial position of the query. In combination with Limit
+// it allows you to paginate the results.
 func (c *Collection) Offset(offset int64) *Collection {
 	c.offset = offset
 	return c
 }
 
+// Limit adds a maximum number of results to the query.
 func (c *Collection) Limit(limit int64) *Collection {
 	c.limit = limit
 	return c
@@ -244,11 +246,7 @@ func (c *Collection) Delete(instance Model) error {
 		return err
 	}
 
-	if err := instance.Tracking().AfterDelete(modelProps); err != nil {
-		return err
-	}
-
-	return nil
+	return instance.Tracking().AfterDelete(modelProps)
 }
 
 func (c *Collection) Iterator() (*Iterator, error) {
@@ -318,6 +316,8 @@ func (c *Collection) GetAll(models interface{}) error {
 	return nil
 }
 
+// First returns the first model that matches the collection. If no one is found
+// it will return ErrNoSuchEntity and it won't touch model.
 func (c *Collection) First(instance Model) error {
 	modelProps := updatedProps(c.props, instance)
 	b := &sqlBuilder{
@@ -348,13 +348,10 @@ func (c *Collection) First(instance Model) error {
 
 	modelProps = updatedProps(c.props, instance)
 
-	if err := instance.Tracking().AfterGet(modelProps); err != nil {
-		return err
-	}
-
-	return nil
+	return instance.Tracking().AfterGet(modelProps)
 }
 
+// Count queries the number of rows that the collection matches.
 func (c *Collection) Count() (int64, error) {
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
@@ -374,6 +371,12 @@ func (c *Collection) Count() (int64, error) {
 	return n, nil
 }
 
+// GetMulti queries multiple rows and return all of them in a list. Keys should
+// be a list of primary keys to retrieve and models should be a pointer to an empty
+// slice of models. If any of the primary keys is not found a MultiError will be returned.
+// You can check the error type for MultiError and then loop over the list of errors, they will
+// be in the same order as the keys and they will have nil's when the row is found. The result
+// list will also have the same length as keys with nil's filled when the row is not found.
 func (c *Collection) GetMulti(keys interface{}, models interface{}) error {
 	v := reflect.ValueOf(models)
 	t := reflect.TypeOf(models)
@@ -381,20 +384,20 @@ func (c *Collection) GetMulti(keys interface{}, models interface{}) error {
 	keysv := reflect.ValueOf(keys)
 
 	if v.Kind() != reflect.Ptr {
-		return fmt.Errorf("database: pass a pointer to a slice of models to GetAll")
+		return fmt.Errorf("database: pass a pointer to a slice of models to GetMulti")
 	}
 	v = v.Elem()
 	t = t.Elem()
 	if v.Kind() != reflect.Slice {
-		return fmt.Errorf("database: pass a slice of models to GetAll")
+		return fmt.Errorf("database: pass a slice of models to GetMulti")
 	}
 
 	if keyst.Kind() != reflect.Slice {
-		return fmt.Errorf("database: pass a slice of keys to GetAll")
+		return fmt.Errorf("database: pass a slice of keys to GetMulti")
 	}
 	keyst = keyst.Elem()
 	if keyst.Kind() != reflect.Int64 && keyst.Kind() != reflect.String {
-		return fmt.Errorf("database: pass a slice of string/int64 keys to GetAll")
+		return fmt.Errorf("database: pass a slice of string/int64 keys to GetMulti")
 	}
 	if keysv.Len() == 0 {
 		return nil
@@ -476,6 +479,7 @@ func (c *Collection) GetMulti(keys interface{}, models interface{}) error {
 	return nil
 }
 
+// Truncate removes every single row of a table.
 func (c *Collection) Truncate() error {
 	b := &sqlBuilder{
 		table: c.model.TableName(),
@@ -500,10 +504,4 @@ func (c *Collection) Truncate() error {
 	}
 
 	return nil
-}
-
-func EscapeLike(str string) string {
-	str = strings.Replace(str, "%", `\%`, -1)
-	str = strings.Replace(str, "_", `\_`, -1)
-	return str
 }

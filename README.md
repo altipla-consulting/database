@@ -24,28 +24,16 @@ You can make pull requests or create issues in GitHub. Any code you send should 
 
 ### Running tests
 
-Start the test database:
+Download any dependency your system may need:
 
 ```shell
-docker-compose up -d database
+make deps
 ```
 
-Install test libs:
+Then run the tests and configure a local MySQL instance for them:
 
 ```shell
-go get github.com/stretchr/testify
-```
-
-Run the tests:
-
-```shell
-go test
-```
-
-Shutdown the database when finished testing:
-
-```shell
-docker-compose stop database
+make test
 ```
 
 

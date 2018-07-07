@@ -40,9 +40,5 @@ func (it *Iterator) Next(model Model) error {
 
 	modelProps = updatedProps(it.props, model)
 
-	if err := model.Tracking().AfterGet(modelProps); err != nil {
-		return err
-	}
-
-	return nil
+	return model.Tracking().AfterGet(modelProps)
 }

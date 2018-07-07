@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	// Imports and registers the MySQL driver.
 	_ "github.com/go-sql-driver/mysql"
 )
 

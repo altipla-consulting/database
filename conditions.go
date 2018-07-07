@@ -50,23 +50,34 @@ func (cond *simpleCondition) Values() []interface{} {
 	return []interface{}{cond.value}
 }
 
-type compareJsonCondition struct {
+type compareJSONCondition struct {
 	column, path string
 	value        interface{}
 }
 
-func CompareJson(column, path string, value interface{}) *compareJsonCondition {
-	return &compareJsonCondition{
+// CompareJSON creates a new condition that checks if a value inside a JSON
+// object of a column is equal to the provided value.
+func CompareJSON(column, path string, value interface{}) Condition {
+	return &compareJSONCondition{
 		column: column,
 		path:   path,
 		value:  value,
 	}
 }
 
-func (cond *compareJsonCondition) SQL() string {
+func (cond *compareJSONCondition) SQL() string {
 	return fmt.Sprintf("JSON_EXTRACT(%s, '%s') = ?", cond.column, cond.path)
 }
 
-func (cond *compareJsonCondition) Values() []interface{} {
+func (cond *compareJSONCondition) Values() []interface{} {
 	return []interface{}{cond.value}
+}
+
+// EscapeLike escapes a value to insert it in a LIKE query without unexpected wildcards.
+// After using this function to clean the value you can add the wildcards you need
+// to the query.
+func EscapeLike(str string) string {
+	str = strings.Replace(str, "%", `\%`, -1)
+	str = strings.Replace(str, "_", `\_`, -1)
+	return str
 }
