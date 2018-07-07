@@ -2,8 +2,9 @@
 # database
 
 [![GoDoc](https://godoc.org/github.com/altipla-consulting/database?status.svg)](https://godoc.org/github.com/altipla-consulting/database)
+[![Build Status](https://travis-ci.org/altipla-consulting/database.svg?branch=master)](https://travis-ci.org/altipla-consulting/database)
 
-> Database helper to read and write models.
+Database helper to read and write models.
 
 
 ### Install
@@ -12,7 +13,8 @@
 go get github.com/altipla-consulting/database
 ```
 
-This library has no external dependencies outside the Go standard library.
+This library has the following dependencies:
+- [github.com/go-sql-driver/mysql](github.com/go-sql-driver/mysql)
 
 
 ### Contributing
@@ -32,7 +34,6 @@ Install test libs:
 
 ```shell
 go get github.com/stretchr/testify
-go get github.com/go-sql-driver/mysql
 ```
 
 Run the tests:
