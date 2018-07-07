@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Collections represents a table. You can apply further filters and operations
+// Collection represents a table. You can apply further filters and operations
 // to the collection and then query it with one of our read methods (Get, GetAll, ...)
 // or use it to store new items (Put).
 type Collection struct {
