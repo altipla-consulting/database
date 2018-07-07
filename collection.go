@@ -504,7 +504,8 @@ func (c *Collection) GetMulti(keys interface{}, models interface{}) error {
 	return nil
 }
 
-// Truncate removes every single row of a table.
+// Truncate removes every single row of a table. It also resets any autoincrement
+// value it may have to the value "1".
 func (c *Collection) Truncate() error {
 	b := &sqlBuilder{
 		table: c.model.TableName(),
