@@ -16,5 +16,6 @@ test:
 	go install .
 
 	docker-compose up -d database
+	bash -c "until mysql -h 127.0.0.1 -P 3307 -u dev-user -pdev-password -e ';' 2> /dev/null ; do sleep 1; done"
 
 	go test
