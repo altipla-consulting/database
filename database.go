@@ -11,28 +11,35 @@ import (
 
 // Database represents a reusable connection to a remote MySQL database.
 type Database struct {
-	sess *sql.DB
+	sess  *sql.DB
+	debug bool
 }
 
 // Open starts a new connection to a remote MySQL database using the provided credentials
-func Open(credentials Credentials) (*Database, error) {
-	if isDebug() {
+func Open(credentials Credentials, options ...DatabaseOptions) (*Database, error) {
+	db := new(Database)
+	for _, option := range options {
+		option(db)
+	}
+
+	if db.debug {
 		log.Println("database [Open]:", credentials)
 	}
 
-	sess, err := sql.Open("mysql", credentials.String())
+	var err error
+	db.sess, err = sql.Open("mysql", credentials.String())
 	if err != nil {
 		return nil, fmt.Errorf("database: cannot connect to mysql: %s", err)
 	}
 
-	sess.SetMaxOpenConns(3)
-	sess.SetMaxIdleConns(0)
+	db.sess.SetMaxOpenConns(3)
+	db.sess.SetMaxIdleConns(0)
 
-	if err := sess.Ping(); err != nil {
+	if err := db.sess.Ping(); err != nil {
 		return nil, fmt.Errorf("database: cannot ping mysql: %s", err)
 	}
 
-	return &Database{sess}, nil
+	return db, nil
 }
 
 // Collection prepares a new collection using the table name of the model. It won't
@@ -58,4 +65,14 @@ func (db *Database) Exec(query string, params ...interface{}) error {
 // MySQL. It is recommended to use Collections instead.
 func (db *Database) QueryRow(query string, params ...interface{}) *sql.Row {
 	return db.sess.QueryRow(query, params...)
+}
+
+// DatabaseOptions can be passed when opening a new connection to a database.
+type DatabaseOption func(db *Database)
+
+// WithDebug is a database option that enables debug logging in the library.
+func WithDebug(debug bool) DatabaseOption {
+	return func(db *Database) {
+		db.debug = debug
+	}
 }
