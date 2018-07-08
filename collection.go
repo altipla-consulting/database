@@ -13,6 +13,7 @@ import (
 // or use it to store new items (Put).
 type Collection struct {
 	sess          *sql.DB
+	debug         bool
 	conditions    []Condition
 	orders        []string
 	offset, limit int64
@@ -28,6 +29,7 @@ func newCollection(db *Database, model Model) *Collection {
 
 	c := &Collection{
 		sess:  db.sess,
+		debug: db.debug,
 		model: model,
 		props: props,
 	}
@@ -66,7 +68,7 @@ func (c *Collection) Get(instance Model) error {
 	}
 
 	statement, values := b.SelectSQL()
-	if isDebug() {
+	if c.debug {
 		log.Println("database [Get]:", statement)
 	}
 
@@ -138,7 +140,7 @@ func (c *Collection) Put(instance Model) error {
 
 		q, values = b.InsertSQL()
 	}
-	if isDebug() {
+	if c.debug {
 		log.Println("database [Put]:", q)
 	}
 
@@ -258,7 +260,7 @@ func (c *Collection) Delete(instance Model) error {
 	}
 
 	statement, values := b.DeleteSQL()
-	if isDebug() {
+	if c.debug {
 		log.Println("database [Delete]:", statement)
 	}
 
@@ -282,7 +284,7 @@ func (c *Collection) Iterator() (*Iterator, error) {
 	}
 
 	sql, values := b.SelectSQL()
-	if isDebug() {
+	if c.debug {
 		log.Println("database [Iterator]:", sql)
 	}
 
@@ -355,7 +357,7 @@ func (c *Collection) First(instance Model) error {
 	}
 
 	statement, values := b.SelectSQL()
-	if isDebug() {
+	if c.debug {
 		log.Println("database [First]:", statement)
 	}
 
@@ -384,7 +386,7 @@ func (c *Collection) Count() (int64, error) {
 	}
 
 	sql, values := b.SelectSQLCols("COUNT(*)")
-	if isDebug() {
+	if c.debug {
 		log.Println("database [Count]:", sql)
 	}
 
@@ -512,7 +514,7 @@ func (c *Collection) Truncate() error {
 	}
 
 	statement := b.TruncateSQL()
-	if isDebug() {
+	if c.debug {
 		log.Println("database [Truncate]:", statement)
 	}
 
@@ -521,7 +523,7 @@ func (c *Collection) Truncate() error {
 	}
 
 	statement = b.ResetAutoIncrementSQL()
-	if isDebug() {
+	if c.debug {
 		log.Println("database [Truncate]:", statement)
 	}
 
