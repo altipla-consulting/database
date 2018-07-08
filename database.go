@@ -16,7 +16,7 @@ type Database struct {
 }
 
 // Open starts a new connection to a remote MySQL database using the provided credentials
-func Open(credentials Credentials, options ...DatabaseOptions) (*Database, error) {
+func Open(credentials Credentials, options ...Option) (*Database, error) {
 	db := new(Database)
 	for _, option := range options {
 		option(db)
@@ -67,11 +67,11 @@ func (db *Database) QueryRow(query string, params ...interface{}) *sql.Row {
 	return db.sess.QueryRow(query, params...)
 }
 
-// DatabaseOptions can be passed when opening a new connection to a database.
-type DatabaseOption func(db *Database)
+// Option can be passed when opening a new connection to a database.
+type Option func(db *Database)
 
 // WithDebug is a database option that enables debug logging in the library.
-func WithDebug(debug bool) DatabaseOption {
+func WithDebug(debug bool) Option {
 	return func(db *Database) {
 		db.debug = debug
 	}
