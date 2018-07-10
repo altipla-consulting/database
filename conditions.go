@@ -78,6 +78,19 @@ func (cond *compareJSONCondition) Values() []interface{} {
 	return []interface{}{cond.value}
 }
 
+type directCondition struct {
+	sql    string
+	values []interface{}
+}
+
+func (cond *directCondition) SQL() string {
+	return cond.sql
+}
+
+func (cond *directCondition) Values() []interface{} {
+	return cond.values
+}
+
 // EscapeLike escapes a value to insert it in a LIKE query without unexpected wildcards.
 // After using this function to clean the value you can add the wildcards you need
 // to the query.

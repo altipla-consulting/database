@@ -11,6 +11,7 @@ type sqlBuilder struct {
 	orders        []string
 	conditions    []Condition
 	limit, offset int64
+	alias         string
 }
 
 func (b *sqlBuilder) cols() []string {
@@ -35,6 +36,9 @@ func (b *sqlBuilder) SelectSQLCols(cols ...string) (string, []interface{}) {
 	}
 
 	sql := fmt.Sprintf(`SELECT %s FROM %s`, strings.Join(cols, ", "), b.table)
+	if b.alias != "" {
+		sql = fmt.Sprintf("%s AS %s", sql, b.alias)
+	}
 
 	if len(conds) > 0 {
 		sql = fmt.Sprintf("%s WHERE %s", sql, strings.Join(conds, " AND "))

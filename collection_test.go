@@ -670,5 +670,102 @@ func TestTruncateResetAutoIncrement(t *testing.T) {
 
 	require.Len(t, models, 1)
 
-	require.Equal(t, models[0].ID, int64(1))
+	require.EqualValues(t, models[0].ID, 1)
+}
+
+func TestFilterExists(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	parent := new(testingRelParent)
+	require.Nil(t, testingsRelParent.Put(parent))
+
+	child := &testingRelChild{
+		Parent: parent.ID,
+		Foo:    "foo-value",
+	}
+	require.Nil(t, testingsRelChild.Put(child))
+
+	otherParent := new(testingRelParent)
+	require.Nil(t, testingsRelParent.Put(otherParent))
+
+	var models []*testingRelParent
+	require.Nil(t, testingsRelParent.FilterExists(testingsRelChild.Filter("foo", "foo-value"), "testing_relparent.id = testing_relchild.parent").GetAll(&models))
+
+	require.Len(t, models, 1)
+
+	require.EqualValues(t, models[0].ID, 1)
+}
+
+func TestFilterExistsDoesNotAffectSubquery(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	parent := new(testingRelParent)
+	require.Nil(t, testingsRelParent.Put(parent))
+
+	child := &testingRelChild{
+		Parent: parent.ID,
+		Foo:    "foo-value",
+	}
+	require.Nil(t, testingsRelChild.Put(child))
+
+	var children []*testingRelParent
+	subquery := testingsRelChild.Filter("foo", "foo-value")
+	require.Nil(t, testingsRelParent.FilterExists(subquery, "testing_relparent.id = testing_relchild.parent").GetAll(&children))
+
+	var submodels []*testingRelChild
+	require.Nil(t, subquery.GetAll(&submodels))
+
+	require.Len(t, submodels, 1)
+
+	require.EqualValues(t, submodels[0].ID, 1)
+}
+
+func TestFilterExistsAliases(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	parent := new(testingRelParent)
+	require.Nil(t, testingsRelParent.Put(parent))
+
+	child := &testingRelChild{
+		Parent: parent.ID,
+		Foo:    "foo-value",
+	}
+	require.Nil(t, testingsRelChild.Put(child))
+
+	otherParent := new(testingRelParent)
+	require.Nil(t, testingsRelParent.Put(otherParent))
+
+	var models []*testingRelParent
+	require.Nil(t, testingsRelParent.Alias("alias1").FilterExists(testingsRelChild.Filter("foo", "foo-value").Alias("alias2"), "alias1.id = alias2.parent").GetAll(&models))
+
+	require.Len(t, models, 1)
+
+	require.EqualValues(t, models[0].ID, 1)
+}
+
+func TestFilterExistsAliasesAfterTheFilter(t *testing.T) {
+	initDatabase(t)
+	defer closeDatabase()
+
+	parent := new(testingRelParent)
+	require.Nil(t, testingsRelParent.Put(parent))
+
+	child := &testingRelChild{
+		Parent: parent.ID,
+		Foo:    "foo-value",
+	}
+	require.Nil(t, testingsRelChild.Put(child))
+
+	otherParent := new(testingRelParent)
+	require.Nil(t, testingsRelParent.Put(otherParent))
+
+	var models []*testingRelParent
+	require.Nil(t, testingsRelParent.FilterExists(testingsRelChild.Filter("foo", "foo-value").Alias("alias2"), "alias1.id = alias2.parent").Alias("alias1").GetAll(&models))
+
+	require.Len(t, models, 1)
+
+	require.EqualValues(t, models[0].ID, 1)
 }
