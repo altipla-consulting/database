@@ -1,16 +1,19 @@
 package database
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	testDB         *Database
-	testings       *Collection
-	testingsAuto   *Collection
-	testingsHooker *Collection
+	testDB            *Database
+	testings          *Collection
+	testingsAuto      *Collection
+	testingsHooker    *Collection
+	testingsRelParent *Collection
+	testingsRelChild  *Collection
 )
 
 type testingModel struct {
@@ -61,6 +64,29 @@ func (model *testingHooker) OnAfterPutHook() error {
 	return nil
 }
 
+type testingRelParent struct {
+	ModelTracking
+
+	ID int64 `db:"id,pk"`
+}
+
+func (model *testingRelParent) TableName() string {
+	return "testing_relparent"
+}
+
+type testingRelChild struct {
+	ModelTracking
+
+	ID int64 `db:"id,pk"`
+
+	Parent int64  `db:"parent"`
+	Foo    string `db:"foo"`
+}
+
+func (model *testingRelChild) TableName() string {
+	return "testing_relchild"
+}
+
 func initDatabase(t *testing.T) {
 	var err error
 	testDB, err = Open(Credentials{
@@ -70,7 +96,7 @@ func initDatabase(t *testing.T) {
 		Database:  "test",
 		Charset:   "utf8mb4",
 		Collation: "utf8mb4_bin",
-	})
+	}, WithDebug(os.Getenv("DEBUG") == "true"))
 	require.Nil(t, err)
 
 	require.Nil(t, testDB.Exec(`DROP TABLE IF EXISTS testing`))
@@ -110,9 +136,35 @@ func initDatabase(t *testing.T) {
   `)
 	require.Nil(t, err)
 
+	require.Nil(t, testDB.Exec(`DROP TABLE IF EXISTS testing_relparent`))
+	err = testDB.Exec(`
+    CREATE TABLE testing_relparent (
+      id INT(11) NOT NULL AUTO_INCREMENT,
+      revision INT(11) NOT NULL,
+
+      PRIMARY KEY(id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+  `)
+	require.Nil(t, err)
+
+	require.Nil(t, testDB.Exec(`DROP TABLE IF EXISTS testing_relchild`))
+	err = testDB.Exec(`
+    CREATE TABLE testing_relchild (
+      id INT(11) NOT NULL AUTO_INCREMENT,
+      parent INT(11),
+      foo VARCHAR(191) NOT NULL,
+      revision INT(11) NOT NULL,
+
+      PRIMARY KEY(id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+  `)
+	require.Nil(t, err)
+
 	testings = testDB.Collection(new(testingModel))
 	testingsAuto = testDB.Collection(new(testingAutoModel))
 	testingsHooker = testDB.Collection(new(testingHooker))
+	testingsRelParent = testDB.Collection(new(testingRelParent))
+	testingsRelChild = testDB.Collection(new(testingRelChild))
 }
 
 func closeDatabase() {

@@ -19,6 +19,7 @@ type Collection struct {
 	offset, limit int64
 	model         Model
 	props         []*Property
+	alias         string
 }
 
 func newCollection(db *Database, model Model) *Collection {
@@ -48,7 +49,15 @@ func (c *Collection) Clone() *Collection {
 		limit:      c.limit,
 		model:      c.model,
 		props:      c.props,
+		alias:      c.alias,
 	}
+}
+
+// Alias changes the name of the table in the SQL query. It is useful in combination
+// with FilterExists() to have a stable name for the tables that should be filtered.
+func (c *Collection) Alias(alias string) *Collection {
+	c.alias = alias
+	return c
 }
 
 // Get retrieves the model matching the collection filters and the model primary key.
@@ -58,6 +67,7 @@ func (c *Collection) Get(instance Model) error {
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
 		conditions: c.conditions,
+		alias:      c.alias,
 		props:      modelProps,
 	}
 
@@ -243,13 +253,15 @@ func (c *Collection) Order(column string) *Collection {
 
 // Delete removes a model from a collection. It uses the filters and the model
 // primary key to find the row to remove, so it can return an error even if the
-// PK exists when the filters do not match.
+// PK exists when the filters do not match. Limits won't be applied but the offset
+// of the collection will.
 func (c *Collection) Delete(instance Model) error {
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
 		conditions: c.conditions,
 		limit:      1,
 		offset:     c.offset,
+		alias:      c.alias,
 	}
 	modelProps := updatedProps(c.props, instance)
 
@@ -281,6 +293,7 @@ func (c *Collection) Iterator() (*Iterator, error) {
 		limit:      c.limit,
 		offset:     c.offset,
 		orders:     c.orders,
+		alias:      c.alias,
 	}
 
 	sql, values := b.SelectSQL()
@@ -354,6 +367,7 @@ func (c *Collection) First(instance Model) error {
 		limit:      c.limit,
 		offset:     c.offset,
 		orders:     c.orders,
+		alias:      c.alias,
 	}
 
 	statement, values := b.SelectSQL()
@@ -383,6 +397,7 @@ func (c *Collection) Count() (int64, error) {
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
 		conditions: c.conditions,
+		alias:      c.alias,
 	}
 
 	sql, values := b.SelectSQLCols("COUNT(*)")
@@ -532,4 +547,35 @@ func (c *Collection) Truncate() error {
 	}
 
 	return nil
+}
+
+// FilterExists checks if a subquery matches for each row before accepting it. It will use
+// the join SQL statement as an additional filter to those ones both queries have to join the
+// rows of two queries. Not having a join statement will throw a panic.
+//
+// No external parameters are allowed in the join statement because they can be supplied through
+// normal filters in both collections. Limit yourself to relate both tables to make the FilterExists
+// call useful.
+//
+// You can alias both collections to use shorter names in the statement. It is recommend to
+// always use names when referring to the columns in the join statement.
+func (c *Collection) FilterExists(sub *Collection, join string) *Collection {
+	if join == "" {
+		panic("join SQL statement is required to FilterExists")
+	}
+
+	sub = sub.Clone().FilterCond(&directCondition{join, nil})
+
+	b := &sqlBuilder{
+		table:      sub.model.TableName(),
+		conditions: sub.conditions,
+		props:      sub.props,
+		limit:      sub.limit,
+		offset:     sub.offset,
+		orders:     sub.orders,
+		alias:      sub.alias,
+	}
+
+	sql, values := b.SelectSQLCols("NULL")
+	return c.FilterCond(&directCondition{fmt.Sprintf("EXISTS (%s)", sql), values})
 }
