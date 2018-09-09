@@ -243,9 +243,9 @@ func (c *Collection) Order(column string) *Collection {
 	}
 
 	if strings.HasPrefix(column, "-") {
-		column = fmt.Sprintf("%s DESC", column[1:])
+		column = fmt.Sprintf("`%s` DESC", column[1:])
 	} else {
-		column = fmt.Sprintf("%s ASC", column)
+		column = fmt.Sprintf("`%s` ASC", column)
 	}
 
 	c.orders = append(c.orders, column)
