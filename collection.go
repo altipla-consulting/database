@@ -50,6 +50,7 @@ func (c *Collection) Clone() *Collection {
 		model:      c.model,
 		props:      c.props,
 		alias:      c.alias,
+		debug:      c.debug,
 	}
 }
 
