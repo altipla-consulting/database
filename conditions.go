@@ -16,79 +16,117 @@ type Condition interface {
 	Values() []interface{}
 }
 
-type simpleCondition struct {
-	sql   string
-	value interface{}
-}
+// Filter applies a new simple filter to the collection. There are multiple types
+// of simple filters depending on the SQL you pass to it:
+//
+//   Filter("foo", "bar")
+//   Filter("foo >", 3)
+//   Filter("foo LIKE", "%bar%")
+//   Filter("DATE_DIFF(?, mycolumn) > 30", time.Now())
+func Filter(sql string, value interface{}) Condition {
+	var queryValues []interface{}
+	if !strings.Contains(sql, " ") {
+		sql = fmt.Sprintf("%s = ?", sql)
+		queryValues = []interface{}{value}
+	} else if strings.Contains(sql, " IN") {
+		v := reflect.ValueOf(value)
 
-func (cond *simpleCondition) SQL() string {
-	if !strings.Contains(cond.sql, " ") {
-		return fmt.Sprintf("%s = ?", cond.sql)
-	}
-
-	if strings.Contains(cond.sql, " IN") {
-		v := reflect.ValueOf(cond.value)
 		placeholders := make([]string, v.Len())
 		for i := 0; i < v.Len(); i++ {
 			placeholders[i] = "?"
+			queryValues = append(queryValues, v.Index(i).Interface())
 		}
-		return fmt.Sprintf("%s (%s)", cond.sql, strings.Join(placeholders, ", "))
+		sql = fmt.Sprintf("%s (%s)", sql, strings.Join(placeholders, ", "))
+
+	} else if !strings.Contains(sql, "?") {
+		sql = fmt.Sprintf("%s ?", sql)
+		queryValues = []interface{}{value}
+	} else {
+		queryValues = []interface{}{value}
 	}
 
-	if !strings.Contains(cond.sql, "?") {
-		return fmt.Sprintf("%s ?", cond.sql)
-	}
-
-	return cond.sql
-}
-
-func (cond *simpleCondition) Values() []interface{} {
-	if strings.Contains(cond.sql, " IN") {
-		v := reflect.ValueOf(cond.value)
-		var values []interface{}
-		for i := 0; i < v.Len(); i++ {
-			values = append(values, v.Index(i).Interface())
-		}
-		return values
-	}
-
-	return []interface{}{cond.value}
-}
-
-type compareJSONCondition struct {
-	column, path string
-	value        interface{}
+	return &sqlCondition{sql, queryValues}
 }
 
 // CompareJSON creates a new condition that checks if a value inside a JSON
 // object of a column is equal to the provided value.
 func CompareJSON(column, path string, value interface{}) Condition {
-	return &compareJSONCondition{
-		column: column,
-		path:   path,
-		value:  value,
+	return &sqlCondition{
+		sql:    fmt.Sprintf("JSON_EXTRACT(%s, '%s') = ?", column, path),
+		values: []interface{}{value},
 	}
 }
 
-func (cond *compareJSONCondition) SQL() string {
-	return fmt.Sprintf("JSON_EXTRACT(%s, '%s') = ?", cond.column, cond.path)
+// FilterExists checks if a subquery matches for each row before accepting it. It will use
+// the join SQL statement as an additional filter to those ones both queries have to join the
+// rows of two queries. Not having a join statement will throw a panic.
+//
+// No external parameters are allowed in the join statement because they can be supplied through
+// normal filters in both collections. Limit yourself to relate both tables to make the FilterExists
+// call useful.
+//
+// You can alias both collections to use shorter names in the statement. It is recommend to
+// always use aliases when referring to the columns in the join statement.
+func FilterExists(sub *Collection, join string) Condition {
+	if join == "" {
+		panic("join SQL statement is required to FilterExists")
+	}
+
+	sub = sub.Clone().FilterCond(&sqlCondition{join, nil})
+	b := &sqlBuilder{
+		table:      sub.model.TableName(),
+		conditions: sub.conditions,
+		props:      sub.props,
+		limit:      sub.limit,
+		offset:     sub.offset,
+		orders:     sub.orders,
+		alias:      sub.alias,
+	}
+	sql, values := b.SelectSQLCols("NULL")
+	return &sqlCondition{fmt.Sprintf("EXISTS (%s)", sql), values}
 }
 
-func (cond *compareJSONCondition) Values() []interface{} {
-	return []interface{}{cond.value}
-}
-
-type directCondition struct {
+type sqlCondition struct {
 	sql    string
 	values []interface{}
 }
 
-func (cond *directCondition) SQL() string {
+func (cond *sqlCondition) SQL() string {
 	return cond.sql
 }
 
-func (cond *directCondition) Values() []interface{} {
+func (cond *sqlCondition) Values() []interface{} {
 	return cond.values
+}
+
+// And applies an AND operation between each of the children conditions.
+func And(children []Condition) Condition {
+	sql := make([]string, len(children))
+	values := []interface{}{}
+	for i, child := range children {
+		sql[i] = child.SQL()
+		values = append(values, child.Values()...)
+	}
+
+	return &sqlCondition{
+		sql:    "(" + strings.Join(sql, " AND ") + ")",
+		values: values,
+	}
+}
+
+// Or applies an OR operation between each of the children conditions.
+func Or(children []Condition) Condition {
+	sql := make([]string, len(children))
+	values := []interface{}{}
+	for i, child := range children {
+		sql[i] = child.SQL()
+		values = append(values, child.Values()...)
+	}
+
+	return &sqlCondition{
+		sql:    "(" + strings.Join(sql, " OR ") + ")",
+		values: values,
+	}
 }
 
 // EscapeLike escapes a value to insert it in a LIKE query without unexpected wildcards.
