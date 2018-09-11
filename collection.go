@@ -74,7 +74,7 @@ func (c *Collection) Get(instance Model) error {
 
 	for _, prop := range modelProps {
 		if prop.PrimaryKey {
-			b.conditions = append(b.conditions, &simpleCondition{prop.Name, prop.Value})
+			b.conditions = append(b.conditions, Filter(prop.Name, prop.Value))
 		}
 	}
 
@@ -124,11 +124,11 @@ func (c *Collection) Put(instance Model) error {
 	var values []interface{}
 	if instance.Tracking().IsInserted() {
 		b.conditions = append(b.conditions, c.conditions...)
-		b.conditions = append(b.conditions, &simpleCondition{"revision", instance.Tracking().StoredRevision()})
+		b.conditions = append(b.conditions, Filter("revision", instance.Tracking().StoredRevision()))
 
 		for _, prop := range modelProps {
 			if prop.PrimaryKey {
-				b.conditions = append(b.conditions, &simpleCondition{prop.Name, prop.Value})
+				b.conditions = append(b.conditions, Filter(prop.Name, prop.Value))
 				continue
 			}
 
@@ -202,15 +202,10 @@ func (c *Collection) Put(instance Model) error {
 	return nil
 }
 
-// Filter applies a new simple filter to the collection. There are multiple types
-// of simple filters depending on the SQL you pass to it:
-//
-//   Filter("foo", "bar")
-//   Filter("foo >", 3)
-//   Filter("foo LIKE", "%bar%")
-//   Filter("DATE_DIFF(?, mycolumn) > 30", time.Now())
+// Filter applies a new simple filter to the collection. See the global Filter
+// function for documentation.
 func (c *Collection) Filter(sql string, value interface{}) *Collection {
-	return c.FilterCond(&simpleCondition{sql, value})
+	return c.FilterCond(Filter(sql, value))
 }
 
 // FilterCond applies a generic condition to the collection. We have some helpers
@@ -268,7 +263,7 @@ func (c *Collection) Delete(instance Model) error {
 
 	for _, prop := range modelProps {
 		if prop.PrimaryKey {
-			b.conditions = append(b.conditions, &simpleCondition{prop.Name, prop.Value})
+			b.conditions = append(b.conditions, Filter(prop.Name, prop.Value))
 		}
 	}
 
@@ -550,33 +545,8 @@ func (c *Collection) Truncate() error {
 	return nil
 }
 
-// FilterExists checks if a subquery matches for each row before accepting it. It will use
-// the join SQL statement as an additional filter to those ones both queries have to join the
-// rows of two queries. Not having a join statement will throw a panic.
-//
-// No external parameters are allowed in the join statement because they can be supplied through
-// normal filters in both collections. Limit yourself to relate both tables to make the FilterExists
-// call useful.
-//
-// You can alias both collections to use shorter names in the statement. It is recommend to
-// always use names when referring to the columns in the join statement.
+// FilterExists applies the global FilterExists condition to this collection. See
+// the global function for documentation.
 func (c *Collection) FilterExists(sub *Collection, join string) *Collection {
-	if join == "" {
-		panic("join SQL statement is required to FilterExists")
-	}
-
-	sub = sub.Clone().FilterCond(&directCondition{join, nil})
-
-	b := &sqlBuilder{
-		table:      sub.model.TableName(),
-		conditions: sub.conditions,
-		props:      sub.props,
-		limit:      sub.limit,
-		offset:     sub.offset,
-		orders:     sub.orders,
-		alias:      sub.alias,
-	}
-
-	sql, values := b.SelectSQLCols("NULL")
-	return c.FilterCond(&directCondition{fmt.Sprintf("EXISTS (%s)", sql), values})
+	return c.FilterCond(FilterExists(sub, join))
 }
