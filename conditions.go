@@ -101,6 +101,10 @@ func (cond *sqlCondition) Values() []interface{} {
 
 // And applies an AND operation between each of the children conditions.
 func And(children []Condition) Condition {
+	if len(children) == 0 {
+		return &sqlCondition{}
+	}
+
 	sql := make([]string, len(children))
 	values := []interface{}{}
 	for i, child := range children {
@@ -116,6 +120,10 @@ func And(children []Condition) Condition {
 
 // Or applies an OR operation between each of the children conditions.
 func Or(children []Condition) Condition {
+	if len(children) == 0 {
+		return &sqlCondition{}
+	}
+	
 	sql := make([]string, len(children))
 	values := []interface{}{}
 	for i, child := range children {
