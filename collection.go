@@ -212,6 +212,10 @@ func (c *Collection) Filter(sql string, value interface{}) *Collection {
 // in this library to build conditions; and other libraries (like github.com/altipla-consulting/geo)
 // can implement their own conditions too.
 func (c *Collection) FilterCond(condition Condition) *Collection {
+	if condition.SQL() == "" {
+		return c
+	}
+	
 	c.conditions = append(c.conditions, condition)
 	return c
 }
