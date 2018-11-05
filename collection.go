@@ -215,7 +215,7 @@ func (c *Collection) FilterCond(condition Condition) *Collection {
 	if condition.SQL() == "" {
 		return c
 	}
-	
+
 	c.conditions = append(c.conditions, condition)
 	return c
 }
@@ -237,8 +237,14 @@ func (c *Collection) Limit(limit int64) *Collection {
 // for descendent order. If you want to order by mutliple columns call Order multiple
 // times for each column, the will be joined.
 func (c *Collection) Order(column string) *Collection {
-	if strings.Contains(column, " ") {
+	if strings.Contains(column, ",") {
 		panic("call Order multiple times, do not pass multiple columns")
+	}
+	if strings.Contains(column, "ASC") {
+		panic("do not call Order with `foo ASC`, use plain `foo` instead")
+	}
+	if strings.Contains(column, "DESC") {
+		panic("do not call Order with `foo DESC`, use plain `-foo` instead")
 	}
 
 	if strings.HasPrefix(column, "-") {

@@ -403,6 +403,24 @@ func TestGetOrder(t *testing.T) {
 	require.Equal(t, "bar", models[1].Code)
 }
 
+func TestMultipleOrderPanics(t *testing.T) {
+	require.PanicsWithValue(t, "call Order multiple times, do not pass multiple columns", func() {
+		testings.Order("foo, -bar")
+	})
+}
+
+func TestAscOrderPanics(t *testing.T) {
+	require.PanicsWithValue(t, "do not call Order with `foo ASC`, use plain `foo` instead", func() {
+		testings.Order("foo ASC")
+	})
+}
+
+func TestDescOrderPanics(t *testing.T) {
+	require.PanicsWithValue(t, "do not call Order with `foo DESC`, use plain `-foo` instead", func() {
+		testings.Order("foo DESC")
+	})
+}
+
 func TestMultipleFilters(t *testing.T) {
 	initDatabase(t)
 	defer closeDatabase()
