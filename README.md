@@ -13,9 +13,6 @@ Database helper to read and write models.
 go get github.com/altipla-consulting/database
 ```
 
-This library has the following dependencies:
-- [github.com/go-sql-driver/mysql](github.com/go-sql-driver/mysql)
-
 
 ### Contributing
 
