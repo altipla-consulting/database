@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"unicode"
 )
 
 var modelTrackingType = reflect.TypeOf(ModelTracking{})
@@ -108,6 +109,10 @@ func extractModelProps(model Model) ([]*Property, error) {
 		fv := v.Field(i)
 		ft := t.Field(i)
 
+		if !startsWithUppercase(ft.Name) {
+			continue
+		}
+
 		if ft.Type == modelTrackingType {
 			props = append(props, &Property{
 				Name:    "`revision`",
@@ -196,4 +201,12 @@ func updatedProps(props []*Property, model Model) []*Property {
 	}
 
 	return result
+}
+
+func startsWithUppercase(s string) bool {
+	for _, r := range s {
+		return unicode.IsUpper(r)
+	}
+
+	return false
 }
