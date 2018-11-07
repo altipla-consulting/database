@@ -205,7 +205,7 @@ func updatedProps(props []*Property, model Model) []*Property {
 
 func startsWithUppercase(s string) bool {
 	for _, r := range s {
-		return !unicode.IsUpper(r)
+		return unicode.IsUpper(r)
 	}
 
 	return false
