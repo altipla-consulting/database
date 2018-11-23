@@ -145,3 +145,17 @@ func EscapeLike(str string) string {
 	str = strings.Replace(str, "_", `\_`, -1)
 	return str
 }
+
+// FilterIsNil filter rows with with NULL in the column.
+func FilterIsNil(column string) Condition {
+	return &sqlCondition{
+		sql: fmt.Sprintf("%s IS NULL", column),
+	}
+}
+
+// FilterIsNotNil filter rows with with something other than NULL in the column.
+func FilterIsNotNil(column string) Condition {
+	return &sqlCondition{
+		sql: fmt.Sprintf("%s IS NOT NULL", column),
+	}
+}
