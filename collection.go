@@ -208,6 +208,18 @@ func (c *Collection) Filter(sql string, value interface{}) *Collection {
 	return c.FilterCond(Filter(sql, value))
 }
 
+// FilterIsNil applies a new NULL filter to the collection. See the global FilterIsNil
+// function for documentation.
+func (c *Collection) FilterIsNil(column string) *Collection {
+	return c.FilterCond(FilterIsNil(column))
+}
+
+// FilterIsNotNil applies a new NOT NULL filter to the collection. See the
+// global FilterIsNotNil function for documentation.
+func (c *Collection) FilterIsNotNil(column string) *Collection {
+	return c.FilterCond(FilterIsNotNil(column))
+}
+
 // FilterCond applies a generic condition to the collection. We have some helpers
 // in this library to build conditions; and other libraries (like github.com/altipla-consulting/geo)
 // can implement their own conditions too.
