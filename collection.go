@@ -269,6 +269,14 @@ func (c *Collection) Order(column string) *Collection {
 	return c
 }
 
+// OrderSorter sorts the collection of items. We have some helpers
+// in this library to build sorters; and other libraries (like github.com/altipla-consulting/geo)
+// can implement their own sorters too.
+func (c *Collection) OrderSorter(sorter Sorter) *Collection {
+	c.orders = append(c.orders, sorter.SQL())
+	return c
+}
+
 // Delete removes a model from a collection. It uses the filters and the model
 // primary key to find the row to remove, so it can return an error even if the
 // PK exists when the filters do not match. Limits won't be applied but the offset
