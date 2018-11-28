@@ -5,11 +5,3 @@ type Sorter interface {
 	// SQL returns the portion of the code that will be merged to the query.
 	SQL() string
 }
-
-type sqlSorter struct {
-	sql string
-}
-
-func (sorter *sqlSorter) SQL() string {
-	return sorter.sql
-}

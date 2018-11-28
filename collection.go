@@ -269,10 +269,10 @@ func (c *Collection) Order(column string) *Collection {
 	return c
 }
 
-// Sort the collection of items. We have some helpers
+// OrderSorter sorts the collection of items. We have some helpers
 // in this library to build sorters; and other libraries (like github.com/altipla-consulting/geo)
 // can implement their own sorters too.
-func (c *Collection) Sort(sorter Sorter) *Collection {
+func (c *Collection) OrderSorter(sorter Sorter) *Collection {
 	c.orders = append(c.orders, sorter.SQL())
 	return c
 }
