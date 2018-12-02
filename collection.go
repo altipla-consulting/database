@@ -385,6 +385,8 @@ func (c *Collection) GetAll(models interface{}) error {
 // First returns the first model that matches the collection. If no one is found
 // it will return ErrNoSuchEntity and it won't touch model.
 func (c *Collection) First(instance Model) error {
+	c = c.Limit(1)
+
 	modelProps := updatedProps(c.props, instance)
 	b := &sqlBuilder{
 		table:      c.model.TableName(),
